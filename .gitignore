@@ -1,0 +1,11 @@
+# Timetable data: rebuilt from TfGM's timetable by tools/refresh_data.sh (weekly), ~30 MB.
+# Kept out of git so each week's refresh doesn't add another copy to the history.
+data/meta.js
+data/bus-departures.js
+data/stops.js
+data/metrolink.js
+data/stops/
+data/lines/
+
+__pycache__/
+.DS_Store

@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Greater Manchester</title>
+  <link rel="icon" href="data:," />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="data/meta.js"></script>
+  <script src="data/bus-departures.js"></script>
+  <script src="data/interchange-layouts.js"></script>
+
+  <style>
+    :root {
+      --font: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --panel-bg: rgba(255, 255, 255, 0.82);
+      --panel-fg: #1f2933;
+      --panel-muted: #5f6b7a;
+      --panel-border: rgba(15, 23, 42, 0.08);
+      --active-bg: #1f2933;
+      --active-fg: #ffffff;
+      --shadow: 0 6px 24px rgba(15, 23, 42, 0.12);
+    }
+    body[data-theme="dark"],
+    body[data-theme="satellite"] {
+      --panel-bg: rgba(22, 26, 32, 0.78);
+      --panel-fg: #eef1f5;
+      --panel-muted: #a3adba;
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --active-bg: #eef1f5;
+      --active-fg: #161a20;
+      --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: #e5e7eb;
+    }
+    #map { position: absolute; inset: 0; }
+
+    .panel {
+      position: absolute;
+      z-index: 2;
+      background: var(--panel-bg);
+      color: var(--panel-fg);
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 16px;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Left column: title card, plus the interchange panel when one is open */
+    .sidebar {
+      position: absolute;
+      z-index: 2;
+      top: 16px;
+      left: 16px;
+      bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .sidebar > .panel { position: relative; pointer-events: auto; }
+    .title { padding: 12px 18px; }
+    .title h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    .modes {
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+    }
+    .modes button {
+      font: 600 14px/1 var(--font);
+      color: var(--panel-fg);
+      background: transparent;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .modes button:hover { background: var(--panel-border); }
+    .modes button[aria-pressed="true"] {
+      background: var(--active-bg);
+      color: var(--active-fg);
+    }
+    .modes button:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    /* Restyle MapLibre's built-in controls to match */
+    .maplibregl-ctrl-group {
+      border-radius: 12px !important;
+      overflow: hidden;
+      box-shadow: var(--shadow) !important;
+    }
+    body[data-theme="dark"] .maplibregl-ctrl-group,
+    body[data-theme="satellite"] .maplibregl-ctrl-group {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+    }
+    body[data-theme="dark"] .maplibregl-ctrl-group button + button,
+    body[data-theme="satellite"] .maplibregl-ctrl-group button + button {
+      border-top-color: var(--panel-border);
+    }
+    body[data-theme="dark"] .maplibregl-ctrl-icon,
+    body[data-theme="satellite"] .maplibregl-ctrl-icon { filter: invert(1); }
+    .maplibregl-ctrl-top-right { top: 72px; }
+    .maplibregl-ctrl-attrib, .maplibregl-ctrl-scale { font-family: var(--font); }
+
+    /* Search */
+    .search { position: relative; margin-top: 10px; width: 240px; }
+    .search input {
+      box-sizing: border-box;
+      width: 100%;
+      font: 600 14px/1.2 var(--font);
+      color: var(--panel-fg);
+      background: var(--panel-border)
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='M11 11l3.5 3.5'/%3E%3C/svg%3E")
+        no-repeat 11px center;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 10px 12px 10px 34px;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .search input::placeholder { color: var(--panel-muted); font-weight: 400; }
+    .search input:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .search-results {
+      position: absolute;
+      z-index: 5;
+      top: calc(100% + 6px);
+      left: 0;
+      width: 300px;
+      max-width: calc(100vw - 32px);
+      max-height: 60vh;
+      overflow-y: auto;
+      margin: 0;
+      padding: 6px;
+      list-style: none;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      box-sizing: border-box;
+    }
+    .search-results[hidden] { display: none; }
+    .search-results li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .search-results li[aria-selected="true"], .search-results li:hover { background: var(--panel-border); }
+    .search-results .search-none { cursor: default; color: var(--panel-muted); font-size: 14px; }
+    .search-type {
+      flex: none;
+      min-width: 76px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--panel-muted);
+    }
+    .search-text { font-size: 14px; font-weight: 600; line-height: 1.25; }
+    .search-text small { display: block; font-size: 12px; font-weight: 400; color: var(--panel-muted); }
+
+    /* Layer filter: on/off switches */
+    .filters {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--panel-border);
+    }
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle .swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--bus);
+      border: 2px solid #1f2933;
+      box-sizing: border-box;
+    }
+    .toggle .label { flex: 1; }
+    .toggle + .toggle { margin-top: 10px; }
+    .toggle .swatch-stop { background: #ffffff; border: 2.5px solid #2563eb; width: 14px; height: 14px; margin: 2px; }
+    .toggle .swatch-tram {
+      border: 0;
+      border-radius: 4px;
+      height: 8px;
+      margin: 5px 0;
+      background: linear-gradient(90deg, #0b78d0 0 33%, #e2457a 33% 66%, #f2c500 66%);
+    }
+    .filter-hint { margin: 8px 0 0; font-size: 12px; color: var(--panel-muted); }
+    .filter-hint[hidden] { display: none; }
+    .toggle input {
+      appearance: none;
+      -webkit-appearance: none;
+      position: relative;
+      width: 38px;
+      height: 22px;
+      margin: 0;
+      border-radius: 999px;
+      background: var(--panel-border);
+      border: 1px solid var(--panel-border);
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .toggle input::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease;
+    }
+    .toggle input:checked { background: #2563eb; }
+    .toggle input:checked::after { transform: translateX(16px); }
+    .toggle input:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+
+    /* Bus interchange markers */
+    :root { --bus: #ffc72c; }
+    /* .interchange is positioned by MapLibre; style only the badge inside it */
+    .interchange-badge {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 50%;
+      background: var(--bus);
+      border: 2px solid #1f2933;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+      cursor: pointer;
+      transition: transform 0.15s ease, width 0.2s ease, height 0.2s ease;
+    }
+    /* Zoomed out, badges sit over town-centre names, so keep them small */
+    .compact-interchanges .interchange-badge { width: 20px; height: 20px; border-width: 1.5px; }
+    .compact-interchanges .interchange-badge svg { width: 11px; height: 11px; }
+    .interchange { cursor: pointer; outline: none; }
+    .interchange:hover, .interchange:focus-visible { z-index: 1; }
+    .interchange:hover .interchange-badge,
+    .interchange:focus-visible .interchange-badge { transform: scale(1.15); }
+    .interchange:focus-visible .interchange-badge { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .interchange-badge svg { width: 15px; height: 15px; }
+    .interchange-label {
+      position: absolute;
+      left: calc(100% + 6px);
+      top: 50%;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      font: 700 13px/1 var(--font);
+      color: var(--panel-fg);
+      background: var(--panel-bg);
+      padding: 5px 8px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .interchange:hover .interchange-label,
+    .interchange:focus-visible .interchange-label,
+    .show-interchange-labels .interchange-label { opacity: 1; }
+    .hide-interchanges .interchange { display: none; }
+
+    .maplibregl-popup-content {
+      font-family: var(--font);
+      background: var(--panel-bg);
+      color: var(--panel-fg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 12px;
+      padding: 12px 16px;
+      box-shadow: var(--shadow);
+    }
+    .maplibregl-popup-tip { display: none; }
+    .maplibregl-popup-close-button { color: var(--panel-muted); font-size: 18px; padding: 0 6px; }
+    .popup-name { margin: 0; font-size: 15px; font-weight: 700; padding-right: 14px; }
+    .popup-meta { margin: 3px 0 0; font-size: 13px; color: var(--panel-muted); }
+
+    /* Next-bus board */
+    .dep-heading {
+      margin: 12px 0 6px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--panel-muted);
+    }
+    .departures { list-style: none; margin: 0; padding: 0; min-width: 270px; }
+    .departures li {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-top: 1px solid var(--panel-border);
+    }
+    .dep-route {
+      min-width: 34px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      background: var(--bus);
+      color: #1f2933;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .dep-route.is-tram { background: var(--line); color: #fff; text-shadow: 0 0 2px rgba(0, 0, 0, 0.55); }
+    .departures li[data-i] { cursor: pointer; border-radius: 8px; }
+    .departures li[data-i]:hover { background: var(--panel-border); }
+    .departures li[data-i]:focus-visible, .route-stops li:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; }
+    .dep-dest { font-size: 14px; font-weight: 600; line-height: 1.25; }
+    .dep-dest small, .dep-time small {
+      display: block;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--panel-muted);
+    }
+    .dep-time { font-size: 14px; font-weight: 700; text-align: right; white-space: nowrap; }
+    .dep-empty { margin: 0; font-size: 14px; }
+    .dep-note { margin: 8px 0 0; font-size: 11px; color: var(--panel-muted); }
+
+    /* Interchange stand diagram panel */
+    .ix-panel {
+      width: 360px;
+      max-width: calc(100vw - 32px);
+      min-height: 0;
+      flex: 0 1 auto;
+      overflow-y: auto;
+      padding: 16px 18px;
+      box-sizing: border-box;
+    }
+    .ix-panel[hidden] { display: none; }
+    .ix-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .ix-head h2 { margin: 0; font-size: 18px; font-weight: 700; }
+    .ix-close {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--panel-border);
+      color: var(--panel-fg);
+      font: 600 20px/1 var(--font);
+      cursor: pointer;
+    }
+    .ix-close:focus-visible, .ix-all:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .ix-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 0 6px; }
+    .ix-bar .dep-heading { margin: 0; }
+    .ix-all {
+      border: 0;
+      background: none;
+      color: #2563eb;
+      font: 700 13px var(--font);
+      cursor: pointer;
+      padding: 4px 0;
+    }
+    body[data-theme="dark"] .ix-all, body[data-theme="satellite"] .ix-all { color: #7aa7ff; }
+    .ix-panel .departures li { cursor: pointer; border-radius: 8px; }
+    .ix-panel .departures li:hover { background: var(--panel-border); }
+    .ix-hint { margin: 2px 0 0; font-size: 13px; color: var(--panel-muted); }
+    .ix-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--panel-muted); }
+    .ix-legend svg { flex: none; }
+    .interchange.is-open { display: none; }
+    .ix-back {
+      border: 0;
+      background: none;
+      padding: 4px 0;
+      color: #2563eb;
+      font: 700 13px var(--font);
+      cursor: pointer;
+    }
+    body[data-theme="dark"] .ix-back, body[data-theme="satellite"] .ix-back { color: #7aa7ff; }
+    .ix-back:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .route-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .route-head .dep-route { font-size: 15px; padding: 6px 8px; }
+    .route-dest { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; }
+    .route-stops { list-style: none; margin: 0; padding: 0; }
+    .route-stops li { cursor: pointer; border-radius: 8px; }
+    .route-stops li:hover { background: var(--panel-border); }
+    .route-dirs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 10px; }
+    .route-dirs button {
+      font: 600 13px var(--font);
+      color: var(--panel-fg);
+      background: var(--panel-border);
+      border: 0;
+      border-radius: 999px;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    .route-dirs button[aria-pressed="true"] { background: var(--active-bg); color: var(--active-fg); }
+    .route-dirs button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .route-stops li {
+      position: relative;
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 14px;
+      padding: 5px 0;
+      font-size: 14px;
+    }
+    /* A line down the left joins the stops, like a printed route map */
+    .route-stops li::before {
+      content: "";
+      position: absolute;
+      left: 52px;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--panel-border);
+    }
+    .route-stops li:first-child::before { top: 50%; }
+    .route-stops li:last-child::before { bottom: 50%; }
+    .route-stops li::after {
+      content: "";
+      position: absolute;
+      left: 49px;
+      top: 50%;
+      width: 9px;
+      height: 9px;
+      margin-top: -4.5px;
+      border-radius: 50%;
+      background: var(--panel-bg);
+      border: 2px solid var(--panel-muted);
+      box-sizing: border-box;
+    }
+    .route-stops li.is-end::after { background: #2563eb; border-color: #2563eb; }
+    .route-time { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .route-name { padding-left: 12px; line-height: 1.25; }
+    .route-name small { display: block; font-size: 12px; color: var(--panel-muted); }
+    .route-stops li.is-end .route-name { font-weight: 700; }
+
+    @media (max-width: 560px) {
+      .title { padding: 10px 14px; }
+      .title h1 { font-size: 17px; }
+      .modes { top: auto; bottom: 44px; right: 50%; transform: translateX(50%); }
+      .sidebar > .ix-panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-width: none;
+        max-height: 48vh;
+        border-radius: 16px 16px 0 0;
+      }
+      body.ix-open .modes, body.ix-open .title { display: none; }
+      .maplibregl-ctrl-top-right { top: 76px; }
+    }
+  </style>
+</head>
+<body data-theme="light">
+  <div id="map"></div>
+
+  <div class="sidebar">
+  <div class="panel title">
+    <h1>Greater Manchester</h1>
+    <div class="search">
+      <input id="search" type="search" placeholder="Stop, town or route number" autocomplete="off" spellcheck="false"
+             role="combobox" aria-label="Search stops, towns and routes" aria-autocomplete="list"
+             aria-expanded="false" aria-controls="search-results" />
+      <ul id="search-results" class="search-results" role="listbox" aria-label="Search results" hidden></ul>
+    </div>
+    <div class="filters">
+      <label class="toggle">
+        <span class="swatch" aria-hidden="true"></span>
+        <span class="label">Bus interchanges</span>
+        <input type="checkbox" id="toggle-interchanges" checked />
+      </label>
+      <label class="toggle">
+        <span class="swatch swatch-stop" aria-hidden="true"></span>
+        <span class="label">Bus stops</span>
+        <input type="checkbox" id="toggle-stops" checked />
+      </label>
+      <label class="toggle">
+        <span class="swatch swatch-tram" aria-hidden="true"></span>
+        <span class="label">Metrolink</span>
+        <input type="checkbox" id="toggle-trams" checked />
+      </label>
+      <p class="filter-hint" id="stops-hint" hidden>Zoom in to see bus stops</p>
+    </div>
+  </div>
+
+  <aside class="panel ix-panel" id="ix-panel" aria-labelledby="ix-title" hidden>
+    <div class="ix-head">
+      <div>
+        <h2 id="ix-title"></h2>
+        <p class="ix-hint">Tap a stand for its buses, or a bus for its route</p>
+      </div>
+      <button type="button" class="ix-close" id="ix-close" aria-label="Close stand diagram">×</button>
+    </div>
+    <div id="ix-body"></div>
+  </aside>
+  </div>
+
+  <div class="panel modes" role="group" aria-label="Map style">
+    <button type="button" data-mode="light">Light</button>
+    <button type="button" data-mode="dark">Dark</button>
+    <button type="button" data-mode="satellite">Satellite</button>
+  </div>
+
+  <script>
+    // Approximate extent of Greater Manchester
+    const GM_BOUNDS = [[-2.73, 53.33], [-1.91, 53.69]];
+    const MAX_BOUNDS = [[-3.4, 53.0], [-1.2, 54.0]];
+
+    const OFM = "https://tiles.openfreemap.org";
+    const LABEL_FONT = ["Noto Sans Regular"];
+    const LABEL_FONT_BOLD = ["Noto Sans Bold"];
+
+    // Satellite imagery with readable vector labels drawn on top.
+    const satelliteStyle = {
+      version: 8,
+      glyphs: `${OFM}/fonts/{fontstack}/{range}.pbf`,
+      sources: {
+        imagery: {
+          type: "raster",
+          tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
+        },
+        openmaptiles: { type: "vector", url: `${OFM}/planet` }
+      },
+      layers: [
+        { id: "imagery", type: "raster", source: "imagery" },
+        {
+          id: "road-labels",
+          type: "symbol",
+          source: "openmaptiles",
+          "source-layer": "transportation_name",
+          minzoom: 14,
+          layout: {
+            "symbol-placement": "line",
+            "text-field": ["get", "name"],
+            "text-font": LABEL_FONT,
+            "text-size": 12,
+            "text-letter-spacing": 0.03
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "rgba(0,0,0,0.75)",
+            "text-halo-width": 1.4
+          }
+        },
+        {
+          id: "minor-places",
+          type: "symbol",
+          source: "openmaptiles",
+          "source-layer": "place",
+          filter: ["in", ["get", "class"], ["literal", ["suburb", "neighbourhood", "quarter", "village", "hamlet"]]],
+          minzoom: 11,
+          layout: {
+            "text-field": ["get", "name"],
+            "text-font": LABEL_FONT,
+            "text-size": ["interpolate", ["linear"], ["zoom"], 11, 11, 16, 15],
+            "text-letter-spacing": 0.03,
+            "text-max-width": 8
+          },
+          paint: {
+            "text-color": "#f3f4f6",
+            "text-halo-color": "rgba(0,0,0,0.75)",
+            "text-halo-width": 1.4
+          }
+        },
+        {
+          id: "towns",
+          type: "symbol",
+          source: "openmaptiles",
+          "source-layer": "place",
+          filter: ["==", ["get", "class"], "town"],
+          minzoom: 8,
+          layout: {
+            "text-field": ["get", "name"],
+            "text-font": LABEL_FONT,
+            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 14, 17],
+            "text-letter-spacing": 0.03
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "rgba(0,0,0,0.8)",
+            "text-halo-width": 1.6
+          }
+        },
+        {
+          id: "cities",
+          type: "symbol",
+          source: "openmaptiles",
+          "source-layer": "place",
+          filter: ["==", ["get", "class"], "city"],
+          layout: {
+            "text-field": ["get", "name"],
+            "text-font": LABEL_FONT_BOLD,
+            "text-size": ["interpolate", ["linear"], ["zoom"], 6, 13, 14, 22],
+            "text-letter-spacing": 0.04
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "rgba(0,0,0,0.85)",
+            "text-halo-width": 1.8
+          }
+        }
+      ]
+    };
+
+    const STYLES = {
+      light: `${OFM}/styles/positron`,
+      dark: `${OFM}/styles/dark`,
+      satellite: satelliteStyle
+    };
+
+    // Priority: #mode in the URL, then last choice, then the OS colour scheme.
+    const requested = location.hash.slice(1) || localStorage.getItem("gm-map-mode");
+    const initialMode = Object.hasOwn(STYLES, requested)
+      ? requested
+      : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+
+    const map = new maplibregl.Map({
+      container: "map",
+      style: STYLES[initialMode],
+      bounds: GM_BOUNDS,
+      fitBoundsOptions: { padding: 40 },
+      maxBounds: MAX_BOUNDS,
+      minZoom: 8,
+      maxZoom: 20,
+      attributionControl: { compact: true }
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
+
+    // The stock dark style uses tiny, dim, ALL-CAPS labels. Bring them in line with
+    // the light style: normal case, sizes that grow with zoom, and higher contrast.
+    const zoomSize = stops => ["interpolate", ["exponential", 1.2], ["zoom"], ...stops];
+    const DARK_LABELS = {
+      place_other:          { size: zoomSize([10, 10, 14, 13]), color: "#9aa4b1" },
+      place_suburb:         { size: zoomSize([10, 10, 14, 13]), color: "#9aa4b1" },
+      place_village:        { size: zoomSize([7, 10, 11, 12]),  color: "#b8c0cb" },
+      place_town:           { size: zoomSize([7, 12, 11, 14]),  color: "#d4dae2" },
+      place_city:           { size: zoomSize([4, 11, 7, 13, 11, 18]), color: "#eef1f5", font: LABEL_FONT_BOLD },
+      place_city_large:     { size: zoomSize([4, 12, 7, 14, 11, 20]), color: "#eef1f5", font: LABEL_FONT_BOLD },
+      highway_name_other:   { size: 12, color: "#8b949e" },
+      highway_name_motorway:{ size: 11, color: "#8b949e" }
+    };
+
+    map.on("style.load", () => {
+      if (document.body.dataset.theme !== "dark") return;
+      for (const [id, s] of Object.entries(DARK_LABELS)) {
+        if (!map.getLayer(id)) continue;
+        map.setLayoutProperty(id, "text-transform", "none");
+        map.setLayoutProperty(id, "text-size", s.size);
+        map.setLayoutProperty(id, "text-letter-spacing", 0.03);
+        if (s.font) map.setLayoutProperty(id, "text-font", s.font);
+        map.setPaintProperty(id, "text-color", s.color);
+        map.setPaintProperty(id, "text-halo-color", "rgba(0,0,0,0.85)");
+        map.setPaintProperty(id, "text-halo-width", 1.4);
+      }
+    });
+
+    const buttons = document.querySelectorAll(".modes button");
+
+    function setMode(mode) {
+      document.body.dataset.theme = mode;
+      buttons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+      localStorage.setItem("gm-map-mode", mode);
+      history.replaceState(null, "", `#${mode}`);
+    }
+
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.mode;
+        if (mode === document.body.dataset.theme) return;
+        setMode(mode);
+        map.setStyle(STYLES[mode], { diff: false });
+      });
+    });
+
+    setMode(initialMode);
+
+    // ---- Timetable data ----------------------------------------------------------------
+    // Generated by tools/build_timetable.py from TfGM's GTFS timetable and DfT's NaPTAN.
+    // Interchanges load with the page; stops, Metrolink and route details load on demand.
+    const META = window.GM_META;
+    const BUS = window.GM_BUS_DATA;
+    if (!META || !BUS) console.warn("Timetable data missing: run tools/build_timetable.py");
+    const INTERCHANGES = BUS?.interchanges ?? [];
+    for (const ix of INTERCHANGES) ix.tables = { services: META.services, headsigns: META.headsigns, stands: ix.stands };
+
+    // META.lines rows: [route number, name, operator, "bus" | "tram", data file, tram colour]
+    const isTramLine = line => META.lines[line][3] === "tram";
+    // Tram lines are named "Blue Line" etc.; a coloured pill only needs "Blue".
+    const shortLineName = line => isTramLine(line) ? META.lines[line][0].replace(/ Line$/, "") : META.lines[line][0];
+
+    // GTFS times are wall-clock times in Greater Manchester, whatever the viewer's timezone.
+    const londonClock = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London", hourCycle: "h23",
+      year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric"
+    });
+    function londonNow() {
+      const p = Object.fromEntries(londonClock.formatToParts(new Date()).map(x => [x.type, Number(x.value)]));
+      return { y: p.year, m: p.month, d: p.day, secs: p.hour * 3600 + p.minute * 60 + p.second };
+    }
+
+    function serviceRunsOn(svc, y, m, d) {
+      const day = new Date(Date.UTC(y, m - 1, d)); // normalises d = 0 or 32 into the next/previous month
+      const ymd = day.getUTCFullYear() * 10000 + (day.getUTCMonth() + 1) * 100 + day.getUTCDate();
+      if (svc.remove.includes(ymd)) return false;
+      if (svc.add.includes(ymd)) return true;
+      const weekday = (day.getUTCDay() + 6) % 7; // GTFS weeks start on Monday
+      return ymd >= svc.start && ymd <= svc.end && svc.days[weekday] === "1";
+    }
+
+    const clockTime = secs =>
+      `${String(Math.floor(secs / 3600) % 24).padStart(2, "0")}:${String(Math.floor(secs / 60) % 60).padStart(2, "0")}`;
+
+    // stop.departures rows: [seconds after service-day midnight, line, headsign, service, stand,
+    // journey variant, position along it]; stop.tables holds what those indexes point into.
+    function nextDepartures(stop, count = 6, standLabel = null) {
+      const T = stop.tables;
+      const now = londonNow();
+      const found = [];
+      // Yesterday's service day covers after-midnight trips (GTFS times like 25:10).
+      for (const offset of [-1, 0, 1]) {
+        const runs = T.services.map(svc => serviceRunsOn(svc, now.y, now.m, now.d + offset));
+        for (const [secs, line, headsign, svc, stand, variant, pos] of stop.departures) {
+          if (standLabel && T.stands[stand] !== standLabel) continue;
+          const t = offset * 86400 + secs;
+          if (t >= now.secs - 30 && runs[svc]) found.push({ t, secs, line, headsign, stand, variant, pos });
+        }
+      }
+      found.sort((a, b) => a.t - b.t);
+      return found.slice(0, count).map(dep => ({
+        line: dep.line, variant: dep.variant, pos: dep.pos, secs: dep.secs,
+        route: shortLineName(dep.line),
+        colour: META.lines[dep.line][5],
+        headsign: T.headsigns[dep.headsign],
+        stand: T.stands[dep.stand],
+        mins: Math.max(0, Math.floor((dep.t - now.secs) / 60)),
+        clock: clockTime(dep.secs)
+      }));
+    }
+
+    // When nothing is due, say when the timetable next has something here (engineering works,
+    // or a timetable that needs refreshing) rather than a bare "nothing found".
+    function nextServiceDate(stop, standLabel = null) {
+      const now = londonNow();
+      for (let d = 1; d <= 21; d++) {
+        const runs = stop.tables.services.map(svc => serviceRunsOn(svc, now.y, now.m, now.d + d));
+        if (stop.departures.some(dep => runs[dep[3]] && (!standLabel || stop.tables.stands[dep[4]] === standLabel))) {
+          return new Date(Date.UTC(now.y, now.m - 1, now.d + d))
+            .toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+        }
+      }
+      return null;
+    }
+
+    // Nudge the map so an opened card isn't cut off by the screen edge or the style switch.
+    function panIntoView(el) {
+      const box = el.getBoundingClientRect();
+      const view = map.getContainer().getBoundingClientRect();
+      const pad = 16;
+      const bottomPad = matchMedia("(max-width: 560px)").matches ? 110 : 40; // mobile style switch
+      const shift = (lo, hi, min, max) => lo < min ? lo - min : hi > max ? Math.min(hi - max, lo - min) : 0;
+      const dx = shift(box.left, box.right, view.left + pad, view.right - pad);
+      const dy = shift(box.top, box.bottom, view.top + pad, view.bottom - bottomPad);
+      if (dx || dy) map.panBy([dx, dy], { duration: 300 });
+    }
+
+    const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+
+    const routePill = (label, colour) =>
+      `<span class="dep-route${colour ? " is-tram" : ""}"${colour ? ` style="--line:${esc(colour)}"` : ""}>${esc(label)}</span>`;
+
+    function departureListHTML(deps, { showStand = true, stop = null, standLabel = null } = {}) {
+      if (!deps.length) {
+        const next = stop && nextServiceDate(stop, standLabel);
+        return `<p class="dep-empty">${next ? `Nothing timetabled here until ${esc(next)}.`
+          : "No timetabled departures in the next three weeks."}</p>`;
+      }
+      const rows = deps.map((d, i) => `
+        <li data-stand="${esc(d.stand)}" data-i="${i}" tabindex="0">
+          ${routePill(d.route, d.colour)}
+          <span class="dep-dest">${esc(d.headsign)}${showStand ? `<small>${esc(d.stand)}</small>` : ""}</span>
+          <span class="dep-time">${d.mins === 0 ? "Due" : d.mins < 60 ? `${d.mins} min` : d.clock}${
+            d.mins > 0 && d.mins < 60 ? `<small>${d.clock}</small>` : ""}</span>
+        </li>`).join("");
+      return `<ul class="departures">${rows}</ul>`;
+    }
+
+    // A popup listing a stop's next departures; tapping one shows the rest of its journey.
+    function departuresPopup(popup, stop) {
+      let deps = [];
+      const render = () => {
+        deps = nextDepartures(stop);
+        popup.setHTML(`
+          <p class="popup-name">${esc(stop.name)}</p>
+          <p class="popup-meta">${esc(stop.kind)}${stop.borough ? ` · ${esc(stop.borough)}` : ""}</p>
+          <p class="dep-heading">${stop.isTram ? "Next trams" : "Next buses"}</p>
+          ${departureListHTML(deps, { showStand: stop.tables.stands.length > 1 && !stop.isTram, stop })}
+          <p class="dep-note">Scheduled times from the TfGM timetable. Tap one for its route.</p>`);
+      };
+      const open = e => {
+        const row = e.target.closest("li[data-i]");
+        if (!row || (e.type === "keydown" && e.key !== "Enter")) return;
+        const dep = deps[Number(row.dataset.i)];
+        popup.remove();
+        showJourney(dep, stop.name);
+      };
+      render();
+      popup.getElement().addEventListener("click", open);
+      popup.getElement().addEventListener("keydown", open);
+      requestAnimationFrame(() => panIntoView(popup.getElement()));
+      const refresh = setInterval(render, 30_000);
+      popup.on("close", () => clearInterval(refresh));
+    }
+
+    // Data files load through script tags rather than fetch() so the page also works when
+    // index.html is opened straight from disk.
+    const scriptLoads = {};
+    function loadScript(src) {
+      return scriptLoads[src] ??= new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => {
+          delete scriptLoads[src];  // allow a retry
+          script.remove();
+          reject(new Error(`Couldn't load ${src}`));
+        };
+        document.head.append(script);
+      });
+    }
+
+    const collection = features => ({ type: "FeatureCollection", features });
+    const point = (coordinates, properties = {}) => ({ type: "Feature", properties, geometry: { type: "Point", coordinates } });
+
+    // The first of these layers that exists, to slot new layers in beneath it.
+    const firstLayer = (...ids) => ids.find(id => map.getLayer(id));
+
+    // ---- Stand diagram -------------------------------------------------------------
+    // Interchanges with a layout in data/interchange-layouts.js (tools/build_layouts.py), and
+    // clusters of lettered stops, open a to-scale diagram drawn on the map itself: building,
+    // bus lanes, bays, stands, and a bus waiting at each stand that has one.
+    const LAYOUTS = window.GM_INTERCHANGE_LAYOUTS ?? {};
+
+    // Stand-in for live positions: a bus timetabled to leave a stand within this many
+    // minutes is drawn waiting there. Swap standOccupancy() for a live feed later.
+    const ON_STAND_MINUTES = 4;
+
+    function standOccupancy(stop) {
+      const busy = new Map();
+      for (const dep of nextDepartures(stop, 80)) {
+        if (dep.mins > ON_STAND_MINUTES) break;
+        if (!busy.has(dep.stand)) busy.set(dep.stand, dep);
+      }
+      return busy;
+    }
+
+    const DIAGRAM_COLOURS = {
+      light: {
+        wash: "#f4f5f7", washOpacity: 0.88, context: "#e1e5ea", contextRoad: "#d3d8df",
+        outline: "#8c96a3", lane: "#bfc6cf", bay: "#d6dbe2", stand: "#ffffff", standText: "#1f2933",
+        route: "#1d4ed8", routeCasing: "#ffffff"
+      },
+      dark: {
+        wash: "#0d0f13", washOpacity: 0.88, context: "#1d2229", contextRoad: "#262c34",
+        outline: "#6b7480", lane: "#3b434e", bay: "#2c323b", stand: "#1f2933", standText: "#eef1f5",
+        route: "#ffc72c", routeCasing: "#0d0f13"
+      },
+      satellite: {
+        wash: "#000000", washOpacity: 0.4, context: "rgba(255,255,255,0.06)", contextRoad: "rgba(255,255,255,0.18)",
+        outline: "rgba(255,255,255,0.8)", lane: "rgba(255,255,255,0.32)", bay: "rgba(255,255,255,0.2)",
+        stand: "#ffffff", standText: "#1f2933", route: "#ffc72c", routeCasing: "#000000"
+      }
+    };
+    const SELECTED = "#2563eb";
+    const themeColours = () => DIAGRAM_COLOURS[document.body.dataset.theme] ?? DIAGRAM_COLOURS.light;
+
+    // Local metres (x east, y south) -> lng/lat; same projection as tools/build_layouts.py.
+    const toLngLat = (layout, [x, y]) => {
+      const [lon0, lat0] = layout.origin;
+      return [lon0 + x / (111320 * Math.cos(lat0 * Math.PI / 180)), lat0 - y / 110540];
+    };
+    const lineFeature = (layout, pts, props = {}) =>
+      ({ type: "Feature", properties: props, geometry: { type: "LineString", coordinates: pts.map(p => toLngLat(layout, p)) } });
+    const polyFeature = (layout, pts, props = {}) =>
+      ({ type: "Feature", properties: props, geometry: { type: "Polygon", coordinates: [pts.map(p => toLngLat(layout, p))] } });
+    const pointFeature = (layout, pt, props = {}) => point(toLngLat(layout, pt), props);
+
+    // A top-down bus 12 m long and 2.55 m wide, facing the stand's heading.
+    function busFeatures(layout, stand, dep) {
+      // tools/build_layouts.py works out where a waiting bus sits: nose-in on a bay's
+      // centreline, or alongside the kerb with the stand on the bus's left.
+      const { front, heading } = stand.bus;
+      const h = heading * Math.PI / 180;
+      const fwd = [Math.sin(h), -Math.cos(h)];
+      const right = [Math.cos(h), Math.sin(h)];
+      const at = (f, r) => [front[0] + fwd[0] * f + right[0] * r, front[1] + fwd[1] * f + right[1] * r];
+      const L = 12, W = 1.275;
+      // Route number runs along the bus, turned so it never reads upside down.
+      let rotate = heading - 90;
+      if (rotate > 90) rotate -= 180;
+      if (rotate < -90) rotate += 180;
+      const props = { stand: stand.label };
+      return [
+        polyFeature(layout, [at(-L, -W), at(-L, W), at(-0.7, W), at(0, W - 0.5), at(0, -W + 0.5), at(-0.7, -W), at(-L, -W)],
+          { ...props, part: "body" }),
+        polyFeature(layout, [at(-1.6, -W + 0.25), at(-1.6, W - 0.25), at(-0.35, W - 0.6), at(-0.35, -W + 0.6), at(-1.6, -W + 0.25)],
+          { ...props, part: "glass" }),
+        pointFeature(layout, at(-L / 2 - 0.6, 0), { ...props, part: "label", route: dep.route, rotate })
+      ];
+    }
+
+    const diagram = { stop: null, layout: null, marker: null, selected: null, camera: null, timer: null };
+
+    function diagramLayers(layout) {
+      const theme = themeColours();
+      // Sizes in real metres: pixels per metre doubles with each zoom level.
+      const mpp0 = 78271.517 * Math.cos(layout.origin[1] * Math.PI / 180);
+      const metres = m => ["interpolate", ["exponential", 2], ["zoom"], 14, m * 2 ** 14 / mpp0, 22, m * 2 ** 22 / mpp0];
+      // Zoom must be the outermost expression, so a per-feature choice goes inside it.
+      const metresIf = (cond, a, b) => ["interpolate", ["exponential", 2], ["zoom"],
+        14, ["case", cond, a * 2 ** 14 / mpp0, b * 2 ** 14 / mpp0], 22, ["case", cond, a * 2 ** 22 / mpp0, b * 2 ** 22 / mpp0]];
+      const isSel = ["==", ["get", "stand"], diagram.selected ?? ""];
+      return [
+        { id: "ix-wash", type: "fill", source: "ix-wash",
+          paint: { "fill-color": theme.wash,
+            "fill-opacity": theme.washOpacity * (route ? 0.35 : layout.synthetic ? 0.5 : 1) } },
+        { id: "ix-context-buildings", type: "fill", source: "ix-static", filter: ["==", ["get", "kind"], "context-building"],
+          paint: { "fill-color": theme.context } },
+        { id: "ix-context-roads", type: "line", source: "ix-static", filter: ["==", ["get", "kind"], "context-road"],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": theme.contextRoad, "line-width": metresIf(["get", "major"], 11, 6) } },
+        { id: "ix-lanes", type: "line", source: "ix-static", filter: ["==", ["get", "kind"], "lane"],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": theme.lane, "line-width": metres(6.5), "line-opacity": ["case", ["get", "tunnel"], 0.55, 1] } },
+        { id: "ix-bays", type: "line", source: "ix-static", filter: ["==", ["get", "kind"], "bay"],
+          layout: { "line-cap": "butt", "line-join": "round" },
+          paint: { "line-color": theme.bay, "line-width": metres(3.2) } },
+        { id: "ix-building", type: "line", source: "ix-static", filter: ["==", ["get", "kind"], "building"],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": theme.outline, "line-width": 2 } },
+        { id: "ix-bus-body", type: "fill", source: "ix-buses", filter: ["==", ["get", "part"], "body"],
+          paint: { "fill-color": ["case", isSel, "#ffd75e", "#ffc72c"] } },
+        { id: "ix-bus-outline", type: "line", source: "ix-buses", filter: ["==", ["get", "part"], "body"],
+          paint: { "line-color": ["case", isSel, SELECTED, "#1f2933"], "line-width": ["case", isSel, 3, 1.5] } },
+        { id: "ix-bus-glass", type: "fill", source: "ix-buses", filter: ["==", ["get", "part"], "glass"],
+          paint: { "fill-color": "#1f2933", "fill-opacity": 0.8 } },
+        { id: "ix-bus-route", type: "symbol", source: "ix-buses", filter: ["==", ["get", "part"], "label"],
+          layout: {
+            "text-field": ["get", "route"], "text-font": LABEL_FONT_BOLD, "text-size": metres(1.7),
+            "text-rotate": ["get", "rotate"], "text-rotation-alignment": "map",
+            "text-allow-overlap": true, "text-ignore-placement": true
+          },
+          paint: { "text-color": "#1f2933" } },
+        { id: "ix-stands", type: "circle", source: "ix-stands",
+          paint: {
+            "circle-radius": metres(1.5),
+            "circle-color": ["case", isSel, SELECTED, theme.stand],
+            "circle-stroke-color": ["case", isSel, "#ffffff", theme.standText],
+            "circle-stroke-width": 1.5
+          } },
+        { id: "ix-stand-labels", type: "symbol", source: "ix-stands",
+          layout: {
+            "text-field": ["get", "short"], "text-font": LABEL_FONT_BOLD, "text-size": metres(1.8),
+            "text-allow-overlap": true, "text-ignore-placement": true
+          },
+          paint: { "text-color": ["case", isSel, "#ffffff", theme.standText] } }
+      ];
+    }
+
+    function busData() {
+      const { layout, stop } = diagram;
+      diagram.buses = standOccupancy(stop);
+      // A stand without a worked-out parking spot just shows no bus, rather than stopping
+      // the whole diagram from drawing.
+      return collection(layout.stands.flatMap(st =>
+        st.bus && diagram.buses.has(st.label) ? busFeatures(layout, st, diagram.buses.get(st.label)) : []));
+    }
+
+    function standData() {
+      const { layout } = diagram;
+      return collection(layout.stands.map(st => pointFeature(layout, [st.x, st.y], { stand: st.label, short: st.short })));
+    }
+
+    function addDiagramToMap() {
+      const { layout } = diagram;
+      if (!layout || map.getSource("ix-static")) return;
+      const [[w, so], [e, n]] = MAX_BOUNDS;
+      map.addSource("ix-wash", { type: "geojson", data: { type: "Feature", properties: {},
+        geometry: { type: "Polygon", coordinates: [[[w, so], [e, so], [e, n], [w, n], [w, so]]] } } });
+      map.addSource("ix-static", {
+        type: "geojson",
+        ...(layout.synthetic ? {} : { attribution: "Stand layout © OpenStreetMap contributors" }),
+        data: collection([
+          ...layout.buildings.filter(b => b.length > 3).map(b => polyFeature(layout, b, { kind: "context-building" })),
+          ...layout.roads.map(r => lineFeature(layout, r.pts, { kind: "context-road", major: r.major })),
+          ...layout.busRoads.map(r => lineFeature(layout, r.pts, { kind: "lane", tunnel: r.tunnel })),
+          ...layout.bays.map(b => lineFeature(layout, b, { kind: "bay" })),
+          ...layout.building.map(b => lineFeature(layout, b, { kind: "building" }))
+        ])
+      });
+      map.addSource("ix-buses", { type: "geojson", data: busData() });
+      map.addSource("ix-stands", { type: "geojson", data: standData() });
+      const before = firstLayer("rt-casing");  // a route, if shown, stays on top
+      for (const layer of diagramLayers(layout)) map.addLayer(layer, before);
+    }
+
+    function removeLayers(prefix) {
+      for (const { id } of map.getStyle().layers) if (id.startsWith(prefix)) map.removeLayer(id);
+      for (const id of Object.keys(map.getStyle().sources)) if (id.startsWith(prefix)) map.removeSource(id);
+    }
+
+    function redrawDiagram() {
+      removeLayers("ix-");
+      addDiagramToMap();
+    }
+
+    const ixPanel = document.getElementById("ix-panel");
+    const ixBody = document.getElementById("ix-body");
+    const ixTitle = document.getElementById("ix-title");
+    const ixHint = document.querySelector("#ix-panel .ix-hint");
+
+    function panelPadding() {
+      return matchMedia("(max-width: 560px)").matches
+        ? { top: 50, left: 24, right: 50, bottom: innerHeight * 0.48 + 30 }
+        : { top: 60, left: ixPanel.getBoundingClientRect().right + 40, right: 70, bottom: 50 };
+    }
+
+    function fitPoints(points, options) {
+      const lngs = points.map(p => p[0]), lats = points.map(p => p[1]);
+      map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+        { padding: panelPadding(), bearing: 0, pitch: 0, duration: 1200, ...options });
+    }
+
+    function frameDiagram() {
+      // Phones can't fit outlying kerbside stands at a readable size, so frame the main bays.
+      const { layout } = diagram;
+      const bayStands = layout.stands.filter(st => st.kind === "bay");
+      const framed = matchMedia("(max-width: 560px)").matches && bayStands.length ? bayStands : layout.stands;
+      fitPoints(framed.map(st => toLngLat(layout, [st.x, st.y])), { maxZoom: 19.5 });
+    }
+
+    function diagramPanelHTML() {
+      const { stop, selected } = diagram;
+      diagram.listed = nextDepartures(stop, selected ? 6 : 8, selected);
+      return `
+        <div class="ix-bar">
+          <p class="dep-heading">${selected ? `${esc(selected)} · next buses` : "Next buses · all stands"}</p>
+          ${selected ? `<button type="button" class="ix-all">All stands</button>` : ""}
+        </div>
+        ${departureListHTML(diagram.listed, { showStand: !selected, stop, standLabel: selected })}
+        <div class="ix-legend">
+          <svg width="28" height="10" viewBox="0 0 28 10" aria-hidden="true">
+            <rect x="0.75" y="0.75" width="26.5" height="8.5" rx="1.5" fill="#ffc72c" stroke="#1f2933" stroke-width="1.5"/>
+            <rect x="22" y="2" width="3.5" height="6" fill="#1f2933" opacity="0.8"/>
+          </svg>
+          Bus timetabled to leave within ${ON_STAND_MINUTES} minutes
+        </div>
+        <p class="dep-note">Scheduled times from the TfGM timetable, not live positions. ${diagram.layout.synthetic
+          ? "Stop positions and directions from NaPTAN." : "Layout © OpenStreetMap contributors."}</p>`;
+    }
+
+    // The side panel shows a route if one is open, otherwise the stand diagram's departures.
+    function renderPanel() {
+      ixPanel.hidden = !(diagram.stop || route);
+      document.body.classList.toggle("ix-open", !ixPanel.hidden);
+      if (route) {
+        renderRoutePanel();
+      } else if (diagram.stop) {
+        ixTitle.textContent = diagram.stop.name;
+        ixHint.textContent = "Tap a stand for its buses, or a bus for its route";
+        ixBody.innerHTML = diagramPanelHTML();
+      }
+    }
+
+    function refreshDiagram() {
+      map.getSource("ix-buses")?.setData(busData());
+      if (!route) renderPanel();  // a route's stop list doesn't change
+    }
+
+    function selectStand(label) {
+      const leavingRoute = !!route;
+      if (route) clearRoute();
+      diagram.selected = label;
+      // Selection colours live in the layer paint, so rebuild the layers.
+      redrawDiagram();
+      renderPanel();
+      if (leavingRoute) frameDiagram();
+    }
+
+    function openDiagram(stop, marker, layout = LAYOUTS[stop.name]) {
+      // Remember where the user was, so closing the diagram takes them back there.
+      const camera = diagram.camera ?? routeCamera ??
+        { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+      if (diagram.stop) closeDiagram({ restoreCamera: false });
+      if (route) clearRoute();
+      routeCamera = null;
+      closePopups();
+      Object.assign(diagram, { stop, layout, marker, selected: null, camera });
+      marker?.getElement().classList.add("is-open");
+      ixPanel.scrollTop = 0;
+      renderPanel();
+      addDiagramToMap();
+      syncOverlayVisibility();
+      frameDiagram();
+      diagram.timer = setInterval(refreshDiagram, 30_000);
+    }
+
+    function closeDiagram({ restoreCamera = true } = {}) {
+      if (!diagram.stop) return;
+      clearInterval(diagram.timer);
+      if (route) clearRoute();
+      removeLayers("ix-");
+      diagram.marker?.getElement().classList.remove("is-open");
+      if (restoreCamera && diagram.camera) map.flyTo({ ...diagram.camera, duration: 1000 });
+      Object.assign(diagram, { stop: null, layout: null, marker: null, selected: null, camera: null });
+      renderPanel();
+      syncOverlayVisibility();
+    }
+
+    // ---- Route view ------------------------------------------------------------------
+    // Either one departure's onward journey with its times ("journey"), or a whole line from
+    // search ("line"). Drawn over the map with its stops listed in the side panel. Each line's
+    // journeys are in data/lines/<file>.js, loaded the first time they're needed.
+    let route = null;
+    let routeCamera = null;  // where to go back to when a route opened outside a diagram closes
+
+    async function loadLine(line) {
+      const file = META.lines[line][4];
+      await loadScript(`data/lines/${file}.js`);
+      if (!window.GM_LINES?.[file]) throw new Error(`No journey data for line ${file}`);
+      return window.GM_LINES[file];
+    }
+
+    // The stops and path of a journey variant from stop `pos` onwards. With a start time the
+    // stops get clock times; without one, minutes from the start.
+    function journeyFrom(data, variant, pos, startSecs = null) {
+      const [p, ...offsets] = data.variants[variant];
+      const pattern = data.patterns[p];
+      const stops = pattern.stops.slice(pos).map((s, j) => {
+        const [name, town, lng, lat] = data.stops[s];
+        const mins = offsets[pos + j] - offsets[pos];
+        return { name, town, lngLat: [lng, lat], mins, clock: startSecs === null ? null : clockTime(startSecs + mins * 60) };
+      });
+      // cuts[k] is the path vertex just before stop k; start the path exactly at the stop.
+      return { stops, path: [stops[0].lngLat, ...pattern.path.slice(pattern.cuts[pos] + 1)] };
+    }
+
+    async function openRoute(next) {
+      closePopups();
+      if (!diagram.stop) routeCamera ??= { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+      if (route) clearRoute();
+      route = next;
+      renderPanel();
+      ixPanel.scrollTop = 0;
+      try {
+        next.data = await loadLine(next.line);
+        if (next.kind === "line") {
+          // The busiest journey pattern in each direction stands for the line.
+          const best = new Map();
+          next.data.patterns.forEach((p, i) => {
+            if (!best.has(p.dir) || p.trips > next.data.patterns[best.get(p.dir)].trips) best.set(p.dir, i);
+          });
+          next.directions = [...best.values()].sort((a, b) => next.data.patterns[b].trips - next.data.patterns[a].trips);
+          setLineDirection(next, 0);
+        } else {
+          Object.assign(next, journeyFrom(next.data, next.dep.variant, next.dep.pos, next.dep.secs));
+        }
+      } catch (err) {
+        console.error(err);
+        next.error = true;
+      }
+      if (route !== next) return;  // closed or replaced while loading
+      drawRoute();
+      renderPanel();
+    }
+
+    function setLineDirection(r, d) {
+      r.direction = d;
+      const p = r.directions[d];
+      const variant = r.data.variants.findIndex(v => v[0] === p);  // a typical timing for this pattern
+      Object.assign(r, journeyFrom(r.data, variant, 0));
+    }
+
+    const showJourney = (dep, stopName) => openRoute({ kind: "journey", line: dep.line, dep, stopName, fromDiagram: !!diagram.stop });
+    const showLine = line => {
+      if (diagram.stop) closeDiagram({ restoreCamera: false });
+      return openRoute({ kind: "line", line });
+    };
+
+    function drawRoute() {
+      removeLayers("rt-");
+      if (!route?.path) return;
+      if (diagram.stop) redrawDiagram();  // lightens the diagram's wash
+      addRouteToMap();
+      fitPoints(route.path, { maxZoom: 16 });
+    }
+
+    function addRouteToMap() {
+      if (!route?.path || map.getSource("rt-src")) return;
+      const theme = themeColours();
+      const colour = META.lines[route.line][5] || theme.route;
+      const stops = route.stops;
+      map.addSource("rt-src", {
+        type: "geojson",
+        data: collection([
+          { type: "Feature", properties: { kind: "line" }, geometry: { type: "LineString", coordinates: route.path } },
+          ...stops.map((st, i) => point(st.lngLat, {
+            kind: "stop", end: i === 0 || i === stops.length - 1,
+            label: st.clock ? `${st.clock}  ${st.name}` : st.name
+          }))
+        ])
+      });
+      const isLine = ["==", ["get", "kind"], "line"], isStop = ["==", ["get", "kind"], "stop"];
+      map.addLayer({ id: "rt-casing", type: "line", source: "rt-src", filter: isLine,
+        layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": theme.routeCasing, "line-width": 9 } });
+      map.addLayer({ id: "rt-line", type: "line", source: "rt-src", filter: isLine,
+        layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": colour, "line-width": 5 } });
+      map.addLayer({ id: "rt-stops", type: "circle", source: "rt-src", filter: isStop,
+        paint: {
+          "circle-radius": ["case", ["get", "end"], 6, 3.5],
+          "circle-color": ["case", ["get", "end"], colour, "#ffffff"],
+          "circle-stroke-color": ["case", ["get", "end"], "#ffffff", colour],
+          "circle-stroke-width": 2
+        } });
+      map.addLayer({ id: "rt-labels", type: "symbol", source: "rt-src", filter: isStop,
+        layout: {
+          "text-field": ["get", "label"], "text-font": LABEL_FONT, "text-size": ["case", ["get", "end"], 14, 12],
+          "text-anchor": "left", "text-offset": [0.9, 0], "text-optional": true,
+          "symbol-sort-key": ["case", ["get", "end"], 0, 1]  // first and last stop win label space
+        },
+        paint: { "text-color": theme.standText, "text-halo-color": theme.routeCasing, "text-halo-width": 1.6 } });
+    }
+
+    // Drop the route without moving the map or redrawing the panel.
+    function clearRoute() {
+      route = null;
+      removeLayers("rt-");
+    }
+
+    // Back out of a route: to the stand diagram it came from, or to where the map was.
+    function hideRoute() {
+      if (!route) return;
+      clearRoute();
+      if (diagram.stop) {
+        redrawDiagram();
+        frameDiagram();
+      } else if (routeCamera) {
+        map.flyTo({ ...routeCamera, duration: 1000 });
+      }
+      routeCamera = null;
+      renderPanel();
+    }
+
+    function renderRoutePanel() {
+      const { kind, dep, error, stops } = route;
+      const lineName = META.lines[route.line][0];
+      const pill = routePill(shortLineName(route.line), META.lines[route.line][5]);
+      const back = route.fromDiagram ? `<div class="ix-bar"><button type="button" class="ix-back">‹ Back to stands</button></div>` : "";
+      let head;
+      if (kind === "journey") {
+        const last = stops?.at(-1);
+        ixTitle.textContent = route.fromDiagram ? diagram.stop.name : route.stopName;
+        ixHint.textContent = isTramLine(route.line) ? "Tram journey" : "Bus journey";
+        head = `${back}
+          <div class="route-head">${pill}
+            <div>
+              <p class="route-dest">${esc(dep.headsign)}</p>
+              <p class="ix-hint">Leaves ${route.fromDiagram ? esc(dep.stand) : esc(route.stopName)} at ${dep.clock}${
+                last ? ` · ${last.mins} min to ${esc(last.name)}` : ""}</p>
+            </div>
+          </div>`;
+      } else {
+        ixTitle.textContent = isTramLine(route.line) ? lineName : `Route ${lineName}`;
+        ixHint.textContent = [META.lines[route.line][1], META.lines[route.line][2]].filter(Boolean).join(" · ");
+        const dirs = route.directions ?? [];
+        head = dirs.length > 1 ? `<div class="route-dirs" role="group" aria-label="Direction">${dirs.map((p, d) =>
+          `<button type="button" data-dir="${d}" aria-pressed="${d === route.direction}">To ${esc(route.data.patterns[p].to)}</button>`
+        ).join("")}</div>` : "";
+      }
+      if (error) {
+        ixBody.innerHTML = `${head}<p class="dep-empty">Couldn't load this route. Try again in a moment.</p>`;
+        return;
+      }
+      if (!stops) {
+        ixBody.innerHTML = `${head}<p class="dep-empty">Loading route…</p>`;
+        return;
+      }
+      const rows = stops.map((st, i) => `
+        <li class="${i === 0 || i === stops.length - 1 ? "is-end" : ""}" data-stop="${i}" tabindex="0">
+          <span class="route-time">${st.clock ?? (i === 0 ? "Start" : `+${st.mins}`)}</span>
+          <span class="route-name">${esc(st.name)}${st.town ? `<small>${esc(st.town)}</small>` : ""}</span>
+        </li>`).join("");
+      ixBody.innerHTML = `${head}<ol class="route-stops">${rows}</ol>
+        <p class="dep-note">${kind === "line" ? "Minutes from the start on a typical journey. Tap a stop to zoom to it." :
+          "Scheduled times from the TfGM timetable. Tap a stop to zoom to it."}</p>`;
+    }
+
+    document.getElementById("ix-close").addEventListener("click", () => {
+      if (diagram.stop) closeDiagram();
+      else hideRoute();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key !== "Escape" || e.target === searchInput) return;
+      if (route) hideRoute();
+      else closeDiagram();
+    });
+    function onPanelActivate(e) {
+      if (e.type === "keydown" && e.key !== "Enter") return;
+      if (e.target.closest(".ix-all")) return selectStand(null);
+      if (e.target.closest(".ix-back")) return hideRoute();
+      const dirButton = e.target.closest("[data-dir]");
+      if (dirButton && route?.kind === "line") {
+        setLineDirection(route, Number(dirButton.dataset.dir));
+        drawRoute();
+        return renderPanel();
+      }
+      const stopRow = e.target.closest("li[data-stop]");
+      if (stopRow && route?.stops) {
+        return map.flyTo({ center: route.stops[Number(stopRow.dataset.stop)].lngLat, zoom: 17, duration: 900 });
+      }
+      const row = e.target.closest("li[data-i]");
+      if (!row || !diagram.stop) return;
+      // In a stand's list a row opens that bus's route; in the all-stands list it picks the stand.
+      if (diagram.selected) showJourney(diagram.listed[Number(row.dataset.i)]);
+      else selectStand(row.dataset.stand);
+    }
+    ixBody.addEventListener("click", onPanelActivate);
+    ixBody.addEventListener("keydown", onPanelActivate);
+    map.on("click", "ix-bus-body", e => {
+      const dep = diagram.buses?.get(e.features[0].properties.stand);
+      if (dep) showJourney(dep);
+    });
+    for (const layer of ["ix-stands", "ix-stand-labels"]) {
+      map.on("click", layer, e => selectStand(e.features[0].properties.stand));
+    }
+    for (const layer of ["ix-stands", "ix-stand-labels", "ix-bus-body"]) {
+      map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
+    }
+
+    // ---- Interchange markers ---------------------------------------------------------
+    const BUS_ICON = `<svg viewBox="0 0 24 24" fill="#1f2933" aria-hidden="true">
+      <path d="M6 2h12a3 3 0 0 1 3 3v12a2 2 0 0 1-1 1.73V20a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H7v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1.27A2 2 0 0 1 3 17V5a3 3 0 0 1 3-3Zm0 3v6h12V5H6Zm1.5 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/>
+    </svg>`;
+
+    const openPopups = new Set();
+    function closePopups() {
+      for (const p of [...openPopups]) p.remove();
+    }
+    function trackPopup(popup) {
+      openPopups.add(popup);
+      popup.on("close", () => openPopups.delete(popup));
+      return popup;
+    }
+
+    const interchangeMarkers = new Map();
+    for (const stop of INTERCHANGES) {
+      stop.kind = "Bus interchange";
+      const el = document.createElement("div");
+      el.className = "interchange";
+      el.innerHTML = `<span class="interchange-badge">${BUS_ICON}<span class="interchange-label">${stop.name}</span></span>`;
+      const marker = new maplibregl.Marker({ element: el }).setLngLat(stop.lngLat).addTo(map);
+      interchangeMarkers.set(stop.name, marker);
+      el.tabIndex = 0;
+      el.setAttribute("role", "button");
+      // Interchanges with a stand layout open the diagram; any without one get a popup.
+      const open = () => LAYOUTS[stop.name]
+        ? openDiagram(stop, marker)
+        : departuresPopup(trackPopup(new maplibregl.Popup({ offset: 20, maxWidth: "340px" }).setLngLat(stop.lngLat).addTo(map)), stop);
+      el.setAttribute("aria-label", LAYOUTS[stop.name] ? `${stop.name}: show stand diagram` : stop.name);
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+      });
+    }
+
+    // Always show names once zoomed in far enough for them not to crowd each other.
+    const mapEl = map.getContainer();
+    const syncLabels = () => {
+      mapEl.classList.toggle("show-interchange-labels", map.getZoom() >= 12);
+      mapEl.classList.toggle("compact-interchanges", map.getZoom() < 11.5);
+    };
+    map.on("zoom", syncLabels);
+    syncLabels();
+
+    // Filter: show / hide interchanges, remembered between visits.
+    const interchangeToggle = document.getElementById("toggle-interchanges");
+    interchangeToggle.checked = localStorage.getItem("gm-show-interchanges") !== "false";
+    function syncInterchanges() {
+      mapEl.classList.toggle("hide-interchanges", !interchangeToggle.checked);
+      localStorage.setItem("gm-show-interchanges", String(interchangeToggle.checked));
+      if (!interchangeToggle.checked) {
+        closePopups();
+        if (diagram.stop && LAYOUTS[diagram.stop.name]) closeDiagram();
+      }
+    }
+    interchangeToggle.addEventListener("change", syncInterchanges);
+    syncInterchanges();
+
+    // ---- Other bus stops ---------------------------------------------------------------
+    // data/stops.js lists ~12,000 stops and the Metrolink platforms; each stop's timetable is
+    // in a ~2 km cell file under data/stops/, loaded only when a stop there is clicked.
+    const STOPS_MIN_ZOOM = 13;
+    const STOP_COLOURS = {
+      light: { fill: "#ffffff", line: "#1f2933", text: "#1f2933", halo: "#ffffff" },
+      dark: { fill: "#1f2933", line: "#eef1f5", text: "#eef1f5", halo: "#0d0f13" },
+      satellite: { fill: "#ffffff", line: "#1f2933", text: "#ffffff", halo: "#000000" }
+    };
+    const CLUSTER_RING = "#2563eb";
+    const stopsToggle = document.getElementById("toggle-stops");
+    const stopsHint = document.getElementById("stops-hint");
+    const loadStops = () => loadScript("data/stops.js");
+
+    function addStopsToMap() {
+      if (!window.GM_STOPS || map.getSource("stops")) return;
+      const theme = STOP_COLOURS[document.body.dataset.theme] ?? STOP_COLOURS.light;
+      map.addSource("stops", {
+        type: "geojson",
+        data: collection(GM_STOPS.stops.flatMap(([name, , lng, lat, , , , cluster, tram], i) =>
+          tram ? [] : [point([lng, lat], { i, name, cluster: cluster >= 0 })]))
+      });
+      const visibility = stopsToggle.checked && !diagram.stop ? "visible" : "none";
+      const before = firstLayer("ix-wash", "rt-casing");  // beneath any open diagram or route
+      map.addLayer({
+        id: "stops-dot", type: "circle", source: "stops", minzoom: STOPS_MIN_ZOOM,
+        layout: { visibility },
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 2.5, 16, 5, 19, 8],
+          "circle-color": theme.fill,
+          "circle-stroke-color": ["case", ["get", "cluster"], CLUSTER_RING, theme.line],
+          "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 13, 1, 16, ["case", ["get", "cluster"], 2.5, 1.5]]
+        }
+      }, before);
+      map.addLayer({
+        id: "stops-label", type: "symbol", source: "stops", minzoom: 16,
+        layout: {
+          visibility, "text-field": ["get", "name"], "text-font": LABEL_FONT, "text-size": 12,
+          "text-anchor": "top", "text-offset": [0, 0.9], "text-optional": true, "text-max-width": 9
+        },
+        paint: { "text-color": theme.text, "text-halo-color": theme.halo, "text-halo-width": 1.5 }
+      }, before);
+    }
+
+    function syncStops() {
+      localStorage.setItem("gm-show-stops", String(stopsToggle.checked));
+      stopsHint.hidden = !stopsToggle.checked || map.getZoom() >= STOPS_MIN_ZOOM;
+      if (stopsToggle.checked && !window.GM_STOPS) loadStops().then(addStopsToMap).catch(err => console.error(err));
+      syncOverlayVisibility();
+    }
+    stopsToggle.checked = localStorage.getItem("gm-show-stops") !== "false";
+    stopsToggle.addEventListener("change", syncStops);
+    map.on("zoomend", () => { stopsHint.hidden = !stopsToggle.checked || map.getZoom() >= STOPS_MIN_ZOOM; });
+
+    const INDICATOR_WORDS = { opp: "opposite", nr: "near", "o/s": "outside", adj: "adjacent", cnr: "corner", at: "at" };
+    const describeIndicator = ind => INDICATOR_WORDS[ind.toLowerCase()] ?? ind;
+
+    // A stop, cluster or tram station as the departures and diagram code expect: departure rows
+    // plus the lookup tables they index into. Each stop index becomes a "stand".
+    async function departureSource(indexes) {
+      await loadStops();
+      const cells = [...new Set(indexes.map(i => GM_STOPS.cells[GM_STOPS.stops[i][6]]))];
+      await Promise.all(cells.map(cell => loadScript(`data/stops/${cell}.js`)));
+      const stands = [];
+      const departures = [];
+      indexes.forEach(i => {
+        const [, indicator, , , , , cell] = GM_STOPS.stops[i];
+        let label = indicator || "Stop";
+        while (stands.includes(label)) label += "′";  // two stops both "opp": keep them apart
+        const stand = stands.push(label) - 1;
+        // Cell rows: [line, headsign, service, [first minute, gaps...], [variant, position, count, ...]]
+        for (const [line, headsign, svc, [first, ...gaps], runs] of GM_STOP_DEPS[GM_STOPS.cells[cell]][i] ?? []) {
+          let minute = first, run = 0, left = runs[2];
+          for (let k = 0; k <= gaps.length; k++) {
+            if (k > 0) minute += gaps[k - 1];
+            if (left === 0) { run += 3; left = runs[run + 2]; }
+            departures.push([minute * 60, line, headsign, svc, stand, runs[run], runs[run + 1]]);
+            left--;
+          }
+        }
+      });
+      departures.sort((a, b) => a[0] - b[0]);
+      return { departures, tables: { services: META.services, headsigns: META.headsigns, stands } };
+    }
+
+    async function openStopPopup(i) {
+      const [name, indicator, lng, lat, , locality] = GM_STOPS.stops[i];
+      closePopups();
+      const popup = trackPopup(new maplibregl.Popup({ offset: 12, maxWidth: "340px" })
+        .setLngLat([lng, lat])
+        .setHTML(`<p class="popup-name">${esc(name)}</p><p class="popup-meta">Loading times…</p>`)
+        .addTo(map));
+      try {
+        const stop = {
+          name, borough: GM_STOPS.localities[locality],
+          kind: indicator ? `Bus stop, ${describeIndicator(indicator)}` : "Bus stop",
+          ...(await departureSource([i]))
+        };
+        if (openPopups.has(popup)) departuresPopup(popup, stop);
+      } catch (err) {
+        console.error(err);
+        popup.setHTML(`<p class="popup-name">${esc(name)}</p><p class="dep-empty">Couldn't load times. Try again in a moment.</p>`);
+      }
+    }
+
+    // Clusters have no OpenStreetMap layout of their own, so build one from the stops:
+    // each bus pulls up with its door at the stop, kerb on its left, facing NaPTAN's bearing.
+    function clusterLayout(indexes, stands) {
+      const pts = indexes.map(i => GM_STOPS.stops[i]);
+      const origin = [pts.reduce((a, p) => a + p[2], 0) / pts.length, pts.reduce((a, p) => a + p[3], 0) / pts.length];
+      const kx = 111320 * Math.cos(origin[1] * Math.PI / 180);
+      return {
+        origin, synthetic: true, building: [], busRoads: [], bays: [], roads: [], buildings: [],
+        stands: pts.map(([, , lng, lat, bearing], k) => {
+          const x = (lng - origin[0]) * kx, y = -(lat - origin[1]) * 110540;
+          const label = stands[k];
+          const short = label.replace(/^(stop|stand|stance)\s+/i, "");
+          let bus = null;
+          if (bearing !== null) {
+            const h = bearing * Math.PI / 180, fwd = [Math.sin(h), -Math.cos(h)], right = [Math.cos(h), Math.sin(h)];
+            bus = { heading: bearing, front: [x + right[0] * 1.575 + fwd[0] * 1.5, y + right[1] * 1.575 + fwd[1] * 1.5] };
+          }
+          return { label, short, x, y, kind: "kerb", heading: bearing, bus };
+        })
+      };
+    }
+
+    async function openCluster(c) {
+      await loadStops();
+      const [name, locality, indexes] = GM_STOPS.clusters[c];
+      closePopups();
+      let source;
+      try {
+        source = await departureSource(indexes);
+      } catch (err) {
+        console.error(err);
+        return;
+      }
+      const stop = { name, borough: GM_STOPS.localities[locality], kind: "Bus stops", ...source };
+      openDiagram(stop, null, clusterLayout(indexes, source.tables.stands));
+    }
+
+    function openStop(i) {
+      const cluster = GM_STOPS.stops[i][7];
+      if (cluster >= 0) openCluster(cluster);
+      else openStopPopup(i);
+    }
+
+    map.on("click", "stops-dot", e => {
+      if (diagram.stop) return;  // a stand diagram is open; its own stands take clicks
+      openStop(e.features[0].properties.i);
+    });
+    map.on("mouseenter", "stops-dot", () => { if (!diagram.stop) map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "stops-dot", () => { map.getCanvas().style.cursor = ""; });
+
+    // ---- Metrolink -------------------------------------------------------------------
+    // data/metrolink.js: the network in each line's colour, and stations (their platforms are
+    // entries in data/stops.js, so tram times come through the same cell files as buses).
+    const tramToggle = document.getElementById("toggle-trams");
+    const loadMetrolink = () => Promise.all([loadScript("data/metrolink.js"), loadStops()]);
+
+    function addMetrolinkToMap() {
+      if (!window.GM_METROLINK || map.getSource("tram")) return;
+      const theme = STOP_COLOURS[document.body.dataset.theme] ?? STOP_COLOURS.light;
+      map.addSource("tram", {
+        type: "geojson",
+        data: collection([
+          ...GM_METROLINK.network.flatMap(({ name, colour, paths }) => paths.map(path =>
+            ({ type: "Feature", properties: { kind: "line", name, colour }, geometry: { type: "LineString", coordinates: path } }))),
+          ...GM_METROLINK.stations.map(([name, lng, lat], s) => point([lng, lat], { kind: "station", name, s }))
+        ])
+      });
+      const visibility = tramToggle.checked && !diagram.stop ? "visible" : "none";
+      const before = firstLayer("stops-dot", "ix-wash", "rt-casing");
+      const isLine = ["==", ["get", "kind"], "line"], isStation = ["==", ["get", "kind"], "station"];
+      map.addLayer({ id: "tram-casing", type: "line", source: "tram", filter: isLine,
+        layout: { visibility, "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": theme.halo, "line-width": ["interpolate", ["linear"], ["zoom"], 9, 3, 15, 8] } }, before);
+      map.addLayer({ id: "tram-lines", type: "line", source: "tram", filter: isLine,
+        layout: { visibility, "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": ["get", "colour"], "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.5, 15, 4.5] } }, before);
+      map.addLayer({ id: "tram-stations", type: "circle", source: "tram", filter: isStation, minzoom: 10,
+        layout: { visibility },
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 15, 6],
+          "circle-color": theme.fill, "circle-stroke-color": theme.line, "circle-stroke-width": 1.5
+        } }, before);
+      map.addLayer({ id: "tram-labels", type: "symbol", source: "tram", filter: isStation, minzoom: 12.5,
+        layout: {
+          visibility, "text-field": ["get", "name"], "text-font": LABEL_FONT_BOLD, "text-size": 12,
+          "text-anchor": "left", "text-offset": [0.8, 0], "text-optional": true
+        },
+        paint: { "text-color": theme.text, "text-halo-color": theme.halo, "text-halo-width": 1.6 } }, before);
+    }
+
+    function syncTrams() {
+      localStorage.setItem("gm-show-trams", String(tramToggle.checked));
+      if (tramToggle.checked && !window.GM_METROLINK) loadMetrolink().then(addMetrolinkToMap).catch(err => console.error(err));
+      syncOverlayVisibility();
+    }
+    tramToggle.checked = localStorage.getItem("gm-show-trams") !== "false";
+    tramToggle.addEventListener("change", syncTrams);
+
+    async function openStation(s) {
+      await loadMetrolink();
+      const [name, lng, lat, platforms] = GM_METROLINK.stations[s];
+      closePopups();
+      const popup = trackPopup(new maplibregl.Popup({ offset: 12, maxWidth: "340px" })
+        .setLngLat([lng, lat])
+        .setHTML(`<p class="popup-name">${esc(name)}</p><p class="popup-meta">Loading times…</p>`)
+        .addTo(map));
+      try {
+        const stop = { name, kind: "Metrolink stop", isTram: true, ...(await departureSource(platforms)) };
+        if (openPopups.has(popup)) departuresPopup(popup, stop);
+      } catch (err) {
+        console.error(err);
+        popup.setHTML(`<p class="popup-name">${esc(name)}</p><p class="dep-empty">Couldn't load times. Try again in a moment.</p>`);
+      }
+    }
+
+    map.on("click", "tram-stations", e => {
+      if (diagram.stop) return;
+      openStation(e.features[0].properties.s);
+    });
+    map.on("mouseenter", "tram-stations", () => { if (!diagram.stop) map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "tram-stations", () => { map.getCanvas().style.cursor = ""; });
+
+    // Stops and trams hide while a stand diagram is open: they'd show through its wash.
+    function syncOverlayVisibility() {
+      const set = (ids, on) => ids.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
+      set(["stops-dot", "stops-label"], stopsToggle.checked && !diagram.stop);
+      set(["tram-casing", "tram-lines", "tram-stations", "tram-labels"], tramToggle.checked && !diagram.stop);
+    }
+
+    // A style switch wipes custom layers; redraw everything in the new theme, bottom to top.
+    map.on("style.load", () => {
+      addMetrolinkToMap();
+      addStopsToMap();
+      addDiagramToMap();
+      addRouteToMap();
+    });
+    map.once("load", () => {
+      syncStops();
+      syncTrams();
+    });
+
+    // ---- Search ------------------------------------------------------------------------
+    // One box for routes ("203", "Pink Line"), interchanges, Metrolink stops, bus stops and
+    // towns. The index is built the first time it's used, once data/stops.js is in.
+    const searchInput = document.getElementById("search");
+    const searchList = document.getElementById("search-results");
+    let searchIndex = null;
+    let searchHits = [];
+    let searchActive = -1;
+    const fold = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").trim();
+
+    async function buildSearchIndex() {
+      await loadMetrolink();
+      const entries = [];
+      META.lines.forEach(([name, long, operator, mode], line) => {
+        const replacement = name === "Replacement Bus";  // Metrolink replacement buses during works
+        entries.push({ type: "route", rank: 0, line,
+          label: replacement ? "Tram replacement bus" : mode === "tram" ? name : `Route ${name}`,
+          key: replacement ? "replacement bus" : name,
+          sub: [long, operator].filter(Boolean).join(" · ") });
+      });
+      for (const stop of INTERCHANGES) {
+        entries.push({ type: "interchange", rank: 1, label: stop.name, sub: `Bus interchange · ${stop.borough}`, stop });
+      }
+      GM_METROLINK.stations.forEach(([name], s) =>
+        entries.push({ type: "tram", rank: 2, label: name, sub: "Metrolink stop", s }));
+      // Bus stops: one entry per name and area, however many stops share it.
+      const places = new Map();
+      const towns = new Map();
+      GM_STOPS.stops.forEach(([name, , lng, lat, , locality, , , tram], i) => {
+        if (tram) return;
+        const town = GM_STOPS.localities[locality];
+        const key = `${name}|${town}`;
+        if (!places.has(key)) places.set(key, { type: "stop", rank: 4, label: name, sub: `Bus stop · ${town}`, stops: [] });
+        places.get(key).stops.push(i);
+        const t = towns.get(town) ?? towns.set(town, { n: 0, lng: 0, lat: 0 }).get(town);
+        t.n++; t.lng += lng; t.lat += lat;
+      });
+      entries.push(...places.values());
+      for (const [town, t] of towns) {
+        if (t.n >= 5) entries.push({ type: "town", rank: 3, label: town, sub: `Area · ${t.n} bus stops`, lngLat: [t.lng / t.n, t.lat / t.n] });
+      }
+      for (const e of entries) e.folded = fold(e.label);
+      return entries;
+    }
+
+    function searchScore(entry, q) {
+      if (entry.type === "route") {
+        const key = fold(entry.key);
+        if (key === q) return 0;
+        if (key.startsWith(q)) return 1;
+      }
+      // Names that start with the query tie, so the kind of place decides: interchange first.
+      if (entry.folded.startsWith(q)) return 2;
+      if (entry.folded.includes(` ${q}`)) return 3;
+      return entry.type === "route" ? null : entry.folded.includes(q) && q.length >= 3 ? 4 : null;
+    }
+
+    async function runSearch() {
+      const q = fold(searchInput.value);
+      if (!q) return showHits([]);
+      searchIndex ??= await buildSearchIndex();
+      if (fold(searchInput.value) !== q) return;  // typed on while the index was building
+      const hits = [];
+      for (const entry of searchIndex) {
+        const score = searchScore(entry, q);
+        if (score !== null) hits.push({ entry, score });
+      }
+      hits.sort((a, b) => a.score - b.score || a.entry.rank - b.entry.rank || a.entry.label.length - b.entry.label.length);
+      showHits(hits.slice(0, 8).map(h => h.entry), q);
+    }
+
+    const SEARCH_ICONS = { route: "Route", interchange: "Interchange", tram: "Tram", stop: "Stop", town: "Area" };
+    function showHits(hits, query = "") {
+      searchHits = hits;
+      searchActive = hits.length ? 0 : -1;
+      searchList.innerHTML = hits.length
+        ? hits.map((h, i) => `
+          <li role="option" id="search-${i}" data-i="${i}" aria-selected="${i === 0}">
+            <span class="search-type">${SEARCH_ICONS[h.type]}</span>
+            <span class="search-text">${esc(h.label)}<small>${esc(h.sub)}</small></span>
+          </li>`).join("")
+        : query ? `<li class="search-none">No matches</li>` : "";
+      searchList.hidden = !searchList.innerHTML;
+      searchInput.setAttribute("aria-expanded", String(!searchList.hidden));
+      searchInput.setAttribute("aria-activedescendant", hits.length ? "search-0" : "");
+    }
+
+    function moveSearch(delta) {
+      if (!searchHits.length) return;
+      searchActive = (searchActive + delta + searchHits.length) % searchHits.length;
+      searchList.querySelectorAll("[role=option]").forEach((li, i) => li.setAttribute("aria-selected", String(i === searchActive)));
+      searchInput.setAttribute("aria-activedescendant", `search-${searchActive}`);
+      searchList.querySelector(`#search-${searchActive}`)?.scrollIntoView({ block: "nearest" });
+    }
+
+    async function chooseHit(hit) {
+      showHits([]);
+      searchInput.value = hit.label;
+      searchInput.blur();
+      if (hit.type === "route") return showLine(hit.line);
+      if (diagram.stop) closeDiagram({ restoreCamera: false });
+      if (route) hideRoute();
+      if (hit.type === "interchange") return openDiagram(hit.stop, interchangeMarkers.get(hit.stop.name));
+      if (hit.type === "town") return map.flyTo({ center: hit.lngLat, zoom: 14.5, duration: 1200 });
+      if (hit.type === "tram") {
+        const [, lng, lat] = GM_METROLINK.stations[hit.s];
+        map.flyTo({ center: [lng, lat], zoom: 16, duration: 1200 });
+        return openStation(hit.s);
+      }
+      // A bus stop: a lettered cluster opens its diagram; otherwise show the first stop's times.
+      const cluster = hit.stops.map(i => GM_STOPS.stops[i][7]).find(c => c >= 0);
+      if (cluster !== undefined) return openCluster(cluster);
+      const [, , lng, lat] = GM_STOPS.stops[hit.stops[0]];
+      map.flyTo({ center: [lng, lat], zoom: 17, duration: 1200 });
+      map.once("moveend", () => openStopPopup(hit.stops[0]));
+    }
+
+    searchInput.addEventListener("input", () => runSearch().catch(err => console.error(err)));
+    searchInput.addEventListener("focus", () => { if (searchInput.value) runSearch(); });
+    searchInput.addEventListener("keydown", e => {
+      if (e.key === "ArrowDown") { e.preventDefault(); moveSearch(1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); moveSearch(-1); }
+      else if (e.key === "Enter" && searchHits[searchActive]) { e.preventDefault(); chooseHit(searchHits[searchActive]); }
+      else if (e.key === "Escape") { searchInput.value = ""; showHits([]); }
+    });
+    searchList.addEventListener("mousedown", e => e.preventDefault());  // keep focus until the click lands
+    searchList.addEventListener("click", e => {
+      const li = e.target.closest("[data-i]");
+      if (li) chooseHit(searchHits[Number(li.dataset.i)]);
+    });
+    searchInput.addEventListener("blur", () => setTimeout(() => showHits([]), 150));
+  </script>
+</body>
+</html>
