@@ -60,12 +60,14 @@
       transition: background 0.3s ease, color 0.3s ease;
     }
 
-    /* Left column: title card, plus the interchange panel when one is open */
+    /* Left: a slim rail of layer switches, and beside it the details panel, which can use the
+       full height of the window */
+    :root { --rail-w: 78px; }
     .sidebar {
       position: absolute;
       z-index: 2;
       top: 16px;
-      left: 16px;
+      left: calc(16px + var(--rail-w) + 12px);
       bottom: 16px;
       display: flex;
       flex-direction: column;
@@ -74,16 +76,22 @@
       pointer-events: none;
     }
     .sidebar > .panel { position: relative; pointer-events: auto; }
-    .title { padding: 12px 18px; }
-    .title h1 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.01em;
-    }
-    .modes {
+
+    /* Top right: search, then the map style switch, then MapLibre's zoom buttons */
+    .top-right {
+      position: absolute;
+      z-index: 3;
       top: 16px;
       right: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .top-right > .panel { position: relative; pointer-events: auto; }
+    .search-panel { padding: 5px; border-radius: 14px; }
+    .modes {
       display: flex;
       gap: 4px;
       padding: 4px;
@@ -126,11 +134,11 @@
     }
     body[data-theme="dark"] .maplibregl-ctrl-icon,
     body[data-theme="satellite"] .maplibregl-ctrl-icon { filter: invert(1); }
-    .maplibregl-ctrl-top-right { top: 72px; }
+    .maplibregl-ctrl-top-right { top: 122px; }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-scale { font-family: var(--font); }
 
     /* Search */
-    .search { position: relative; margin-top: 10px; width: 240px; }
+    .search { position: relative; width: 300px; }
     .search input {
       box-sizing: border-box;
       width: 100%;
@@ -150,9 +158,9 @@
     .search-results {
       position: absolute;
       z-index: 5;
-      top: calc(100% + 6px);
-      left: 0;
-      width: 300px;
+      top: calc(100% + 10px);
+      right: -5px;
+      width: 340px;
       max-width: calc(100vw - 32px);
       max-height: 60vh;
       overflow-y: auto;
@@ -190,69 +198,87 @@
     .search-text { font-size: 14px; font-weight: 600; line-height: 1.25; }
     .search-text small { display: block; font-size: 12px; font-weight: 400; color: var(--panel-muted); }
 
-    /* Layer filter: on/off switches */
-    .filters {
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid var(--panel-border);
-    }
-    .toggle {
+    /* Layer switches: a vertical rail on the left. Each is a checkbox drawn as an icon button;
+       a layer that's switched off is greyed out. */
+    .rail {
+      top: 16px;
+      left: 16px;
+      width: var(--rail-w);
+      box-sizing: border-box;
       display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px;
+      border-radius: 18px;
+    }
+    .rail-toggle {
+      position: relative;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 10px;
-      font-size: 14px;
-      font-weight: 600;
+      gap: 5px;
+      padding: 8px 2px 7px;
+      border-radius: 12px;
       cursor: pointer;
       user-select: none;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.15;
+      text-align: center;
+      color: var(--panel-fg);
     }
-    .toggle .swatch {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--bus);
-      border: 2px solid #1f2933;
-      box-sizing: border-box;
-    }
-    .toggle .label { flex: 1; }
-    .toggle + .toggle { margin-top: 10px; }
-    .toggle .swatch-stop { background: #ffffff; border: 2.5px solid #2563eb; width: 14px; height: 14px; margin: 2px; }
-    .toggle .swatch-tram {
-      border: 0;
-      border-radius: 4px;
-      height: 8px;
-      margin: 5px 0;
-      background: linear-gradient(90deg, #0b78d0 0 33%, #e2457a 33% 66%, #f2c500 66%);
-    }
-    .filter-hint { margin: 8px 0 0; font-size: 12px; color: var(--panel-muted); }
-    .filter-hint[hidden] { display: none; }
-    .toggle input {
-      appearance: none;
-      -webkit-appearance: none;
-      position: relative;
-      width: 38px;
-      height: 22px;
-      margin: 0;
-      border-radius: 999px;
-      background: var(--panel-border);
-      border: 1px solid var(--panel-border);
-      cursor: pointer;
-      transition: background 0.2s ease;
-    }
-    .toggle input::after {
-      content: "";
+    .rail-toggle:hover { background: var(--panel-border); }
+    .rail-toggle input {  /* hidden but still focusable and announced */
       position: absolute;
-      top: 2px;
-      left: 2px;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      margin: 0;
+      pointer-events: none;
+    }
+    .rail-icon {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      box-sizing: border-box;
+      background: var(--panel-border);
+      transition: opacity 0.2s ease, filter 0.2s ease;
+    }
+    .rail-icon svg { width: 20px; height: 20px; }
+    .rail-icon-ix { background: var(--bus); border: 2px solid #1f2933; }
+    .rail-icon-ix svg { width: 18px; height: 18px; }
+    .rail-icon-stop::before {
+      content: "";
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-      transition: transform 0.2s ease;
+      background: #ffffff;
+      border: 3px solid #2563eb;
+      box-sizing: border-box;
     }
-    .toggle input:checked { background: #2563eb; }
-    .toggle input:checked::after { transform: translateX(16px); }
-    .toggle input:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .rail-icon-tram { color: #0b78d0; }
+    body[data-theme="dark"] .rail-icon-tram, body[data-theme="satellite"] .rail-icon-tram { color: #5fb3ff; }
+    .rail-toggle input:not(:checked) ~ .rail-icon,
+    .rail-toggle input:not(:checked) ~ .rail-label { opacity: 0.38; filter: grayscale(1); }
+    .rail-toggle input:focus-visible ~ .rail-icon { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .rail-hint {
+      position: absolute;
+      left: calc(100% + 14px);
+      top: 50%;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--panel-bg);
+      box-shadow: var(--shadow);
+      color: var(--panel-muted);
+      font-size: 12px;
+      font-weight: 600;
+      pointer-events: none;
+    }
+    .rail-hint[hidden], body.ix-open .rail-hint { display: none; }
 
     /* Bus interchange markers */
     :root { --bus: #ffc72c; }
@@ -362,8 +388,8 @@
 
     /* Interchange stand diagram panel */
     .ix-panel {
-      width: 360px;
-      max-width: calc(100vw - 32px);
+      width: 380px;
+      max-width: calc(100vw - var(--rail-w) - 44px);
       min-height: 0;
       flex: 0 1 auto;
       overflow-y: auto;
@@ -402,6 +428,60 @@
     .ix-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--panel-muted); }
     .ix-legend svg { flex: none; }
     .interchange.is-open { display: none; }
+    .veh-note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: var(--panel-border);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .veh-swatch {
+      flex: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #1f2933;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 1px #1f2933;
+    }
+    .veh-show {
+      flex: none;
+      border: 0;
+      background: none;
+      padding: 2px 0;
+      color: #2563eb;
+      font: 700 12px var(--font);
+      cursor: pointer;
+    }
+    body[data-theme="dark"] .veh-show, body[data-theme="satellite"] .veh-show { color: #7aa7ff; }
+    .veh-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 2px 0 12px; }
+    .veh-status {
+      font-size: 13px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--panel-border);
+    }
+    .veh-status.on-time { background: #dcfce7; color: #166534; }
+    .veh-status.late { background: #fee2e2; color: #991b1b; }
+    .veh-status.early { background: #fef3c7; color: #92400e; }
+    .veh-status.none { font-weight: 600; color: var(--panel-muted); }
+    .veh-follow {
+      flex: none;
+      font: 700 13px var(--font);
+      color: #ffffff;
+      background: #2563eb;
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    .veh-follow[aria-pressed="true"] { background: var(--active-bg); color: var(--active-fg); }
+    .veh-follow:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
     .ix-back {
       border: 0;
       background: none;
@@ -470,9 +550,15 @@
     .route-stops li.is-end .route-name { font-weight: 700; }
 
     @media (max-width: 560px) {
-      .title { padding: 10px 14px; }
-      .title h1 { font-size: 17px; }
-      .modes { top: auto; bottom: 44px; right: 50%; transform: translateX(50%); }
+      :root { --rail-w: 56px; }
+      .top-right { top: 12px; left: 12px; right: 12px; align-items: stretch; }
+      .search { width: auto; }
+      .search-results { right: -5px; left: -5px; width: auto; max-width: none; }
+      .top-right > .modes { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); }
+      .rail { top: 76px; left: 12px; padding: 4px; }
+      .rail-toggle { padding: 6px 2px; }
+      .rail-label { display: none; }
+      .rail-icon { width: 34px; height: 34px; }
       .sidebar > .ix-panel {
         position: fixed;
         left: 0;
@@ -483,43 +569,44 @@
         max-height: 48vh;
         border-radius: 16px 16px 0 0;
       }
-      body.ix-open .modes, body.ix-open .title { display: none; }
-      .maplibregl-ctrl-top-right { top: 76px; }
+      body.ix-open .modes { display: none; }
+      .maplibregl-ctrl-top-right { top: 66px; }
     }
   </style>
 </head>
 <body data-theme="light">
   <div id="map"></div>
 
-  <div class="sidebar">
-  <div class="panel title">
-    <h1>Greater Manchester</h1>
-    <div class="search">
-      <input id="search" type="search" placeholder="Stop, town or route number" autocomplete="off" spellcheck="false"
-             role="combobox" aria-label="Search stops, towns and routes" aria-autocomplete="list"
-             aria-expanded="false" aria-controls="search-results" />
-      <ul id="search-results" class="search-results" role="listbox" aria-label="Search results" hidden></ul>
-    </div>
-    <div class="filters">
-      <label class="toggle">
-        <span class="swatch" aria-hidden="true"></span>
-        <span class="label">Bus interchanges</span>
-        <input type="checkbox" id="toggle-interchanges" checked />
-      </label>
-      <label class="toggle">
-        <span class="swatch swatch-stop" aria-hidden="true"></span>
-        <span class="label">Bus stops</span>
-        <input type="checkbox" id="toggle-stops" checked />
-      </label>
-      <label class="toggle">
-        <span class="swatch swatch-tram" aria-hidden="true"></span>
-        <span class="label">Metrolink</span>
-        <input type="checkbox" id="toggle-trams" checked />
-      </label>
-      <p class="filter-hint" id="stops-hint" hidden>Zoom in to see bus stops</p>
-    </div>
-  </div>
+  <!-- Left: layer switches -->
+  <nav class="panel rail" aria-label="Map layers">
+    <label class="rail-toggle" title="Bus interchanges">
+      <input type="checkbox" id="toggle-interchanges" checked />
+      <span class="rail-icon rail-icon-ix" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="#1f2933"><path d="M6 2h12a3 3 0 0 1 3 3v12a2 2 0 0 1-1 1.73V20a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H7v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1.27A2 2 0 0 1 3 17V5a3 3 0 0 1 3-3Zm0 3v6h12V5H6Zm1.5 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
+      </span>
+      <span class="rail-label">Interchanges</span>
+    </label>
+    <label class="rail-toggle" title="Bus stops">
+      <input type="checkbox" id="toggle-stops" checked />
+      <span class="rail-icon rail-icon-stop" aria-hidden="true"></span>
+      <span class="rail-label">Bus stops</span>
+      <span class="rail-hint" id="stops-hint" hidden>Zoom in to see bus stops</span>
+    </label>
+    <label class="rail-toggle" title="Metrolink">
+      <input type="checkbox" id="toggle-trams" checked />
+      <span class="rail-icon rail-icon-tram" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 2h6M12 2v3"/><rect x="5" y="5" width="14" height="13" rx="3" fill="currentColor"/>
+          <rect x="7.5" y="7.5" width="9" height="4.5" rx="1" fill="#fff" stroke="none"/>
+          <path d="M8 21l2-3M16 21l-2-3"/>
+        </svg>
+      </span>
+      <span class="rail-label">Metrolink</span>
+    </label>
+  </nav>
 
+  <!-- Beside the rail: details of whatever's been clicked -->
+  <div class="sidebar">
   <aside class="panel ix-panel" id="ix-panel" aria-labelledby="ix-title" hidden>
     <div class="ix-head">
       <div>
@@ -532,10 +619,21 @@
   </aside>
   </div>
 
-  <div class="panel modes" role="group" aria-label="Map style">
-    <button type="button" data-mode="light">Light</button>
-    <button type="button" data-mode="dark">Dark</button>
-    <button type="button" data-mode="satellite">Satellite</button>
+  <!-- Top right: search, then map style -->
+  <div class="top-right">
+    <div class="panel search-panel">
+      <div class="search">
+        <input id="search" type="search" placeholder="Stop, town or route number" autocomplete="off" spellcheck="false"
+               role="combobox" aria-label="Search stops, towns and routes" aria-autocomplete="list"
+               aria-expanded="false" aria-controls="search-results" />
+        <ul id="search-results" class="search-results" role="listbox" aria-label="Search results" hidden></ul>
+      </div>
+    </div>
+    <div class="panel modes" role="group" aria-label="Map style">
+      <button type="button" data-mode="light">Light</button>
+      <button type="button" data-mode="dark">Dark</button>
+      <button type="button" data-mode="satellite">Satellite</button>
+    </div>
   </div>
 
   <script>
@@ -769,7 +867,7 @@
       }
       found.sort((a, b) => a.t - b.t);
       return found.slice(0, count).map(dep => ({
-        line: dep.line, variant: dep.variant, pos: dep.pos, secs: dep.secs,
+        line: dep.line, variant: dep.variant, pos: dep.pos, secs: dep.secs, at: dep.t,
         route: shortLineName(dep.line),
         colour: META.lines[dep.line][5],
         headsign: T.headsigns[dep.headsign],
@@ -836,9 +934,11 @@
           <p class="popup-meta">${esc(stop.kind)}${stop.borough ? ` · ${esc(stop.borough)}` : ""}</p>
           <p class="dep-heading">${stop.isTram ? "Next trams" : "Next buses"}</p>
           ${departureListHTML(deps, { showStand: stop.tables.stands.length > 1 && !stop.isTram, stop })}
+          ${vehicleNoteHTML()}
           <p class="dep-note">Scheduled times from the TfGM timetable. Tap one for its route.</p>`);
       };
       const open = e => {
+        if (e.target.closest(".veh-show")) return showAllVehicles();
         const row = e.target.closest("li[data-i]");
         if (!row || (e.type === "keydown" && e.key !== "Enter")) return;
         const dep = deps[Number(row.dataset.i)];
@@ -850,7 +950,13 @@
       popup.getElement().addEventListener("keydown", open);
       requestAnimationFrame(() => panIntoView(popup.getElement()));
       const refresh = setInterval(render, 30_000);
-      popup.on("close", () => clearInterval(refresh));
+      popup.on("close", () => {
+        clearInterval(refresh);
+        if (tracked.stop !== stop) return;
+        if (keepVehiclesOnClose) tracked.onChange = null;  // keep the buses, but not this popup's updates
+        else untrackStation();
+      });
+      trackStation(stop, render);
     }
 
     // Data files load through script tags rather than fetch() so the page also works when
@@ -871,6 +977,29 @@
     }
 
     const collection = features => ({ type: "FeatureCollection", features });
+
+    // Round off a path's corners for drawing (Chaikin corner cutting). Each pass cuts every
+    // corner a quarter of the way along its two sides, but never more than `maxCut` metres, so
+    // turns become smooth curves while long straights stay put and the line keeps to the road.
+    function smoothPath(path, { maxCut = 12, passes = 3 } = {}) {
+      let pts = path;
+      for (let pass = 0; pass < passes && pts.length > 2; pass++) {
+        const out = [pts[0]];
+        for (let k = 1; k < pts.length - 1; k++) {
+          const [prev, cur, next] = [pts[k - 1], pts[k], pts[k + 1]];
+          const kx = 111320 * Math.cos(cur[1] * Math.PI / 180);
+          const cut = (to) => {
+            const len = Math.hypot((to[0] - cur[0]) * kx, (to[1] - cur[1]) * 110540);
+            const t = len ? Math.min(0.25, maxCut / len) : 0;
+            return [cur[0] + (to[0] - cur[0]) * t, cur[1] + (to[1] - cur[1]) * t];
+          };
+          out.push(cut(prev), cut(next));
+        }
+        out.push(pts.at(-1));
+        pts = out;
+      }
+      return pts;
+    }
     const point = (coordinates, properties = {}) => ({ type: "Feature", properties, geometry: { type: "Point", coordinates } });
 
     // The first of these layers that exists, to slot new layers in beneath it.
@@ -899,17 +1028,18 @@
       light: {
         wash: "#f4f5f7", washOpacity: 0.88, context: "#e1e5ea", contextRoad: "#d3d8df",
         outline: "#8c96a3", lane: "#bfc6cf", bay: "#d6dbe2", stand: "#ffffff", standText: "#1f2933",
-        route: "#1d4ed8", routeCasing: "#ffffff"
+        route: "#1d4ed8", routeCasing: "#ffffff", routeText: "#0f172a", routeHalo: "#ffffff", routeWash: 0.55
       },
       dark: {
         wash: "#0d0f13", washOpacity: 0.88, context: "#1d2229", contextRoad: "#262c34",
         outline: "#6b7480", lane: "#3b434e", bay: "#2c323b", stand: "#1f2933", standText: "#eef1f5",
-        route: "#ffc72c", routeCasing: "#0d0f13"
+        route: "#ffc72c", routeCasing: "#0d0f13", routeText: "#ffffff", routeHalo: "#0d0f13", routeWash: 0.55
       },
       satellite: {
         wash: "#000000", washOpacity: 0.4, context: "rgba(255,255,255,0.06)", contextRoad: "rgba(255,255,255,0.18)",
         outline: "rgba(255,255,255,0.8)", lane: "rgba(255,255,255,0.32)", bay: "rgba(255,255,255,0.2)",
-        stand: "#ffffff", standText: "#1f2933", route: "#ffc72c", routeCasing: "#000000"
+        stand: "#ffffff", standText: "#1f2933", route: "#ffc72c", routeCasing: "#000000",
+        routeText: "#ffffff", routeHalo: "#000000", routeWash: 0.45
       }
     };
     const SELECTED = "#2563eb";
@@ -964,7 +1094,8 @@
       return [
         { id: "ix-wash", type: "fill", source: "ix-wash",
           paint: { "fill-color": theme.wash,
-            "fill-opacity": theme.washOpacity * (route ? 0.35 : layout.synthetic ? 0.5 : 1) } },
+            // While a route is shown its own wash takes over, so the two don't stack up.
+            "fill-opacity": route?.path ? 0 : theme.washOpacity * (layout.synthetic ? 0.5 : 1) } },
         { id: "ix-context-buildings", type: "fill", source: "ix-static", filter: ["==", ["get", "kind"], "context-building"],
           paint: { "fill-color": theme.context } },
         { id: "ix-context-roads", type: "line", source: "ix-static", filter: ["==", ["get", "kind"], "context-road"],
@@ -1041,7 +1172,7 @@
       });
       map.addSource("ix-buses", { type: "geojson", data: busData() });
       map.addSource("ix-stands", { type: "geojson", data: standData() });
-      const before = firstLayer("rt-casing");  // a route, if shown, stays on top
+      const before = firstLayer("rt-casing", "veh-dot");  // a route or moving buses stay on top
       for (const layer of diagramLayers(layout)) map.addLayer(layer, before);
     }
 
@@ -1060,10 +1191,15 @@
     const ixTitle = document.getElementById("ix-title");
     const ixHint = document.querySelector("#ix-panel .ix-hint");
 
+    // The part of the map not covered by the layer rail, the details panel or the top-right
+    // controls, for framing things and centring a followed bus.
     function panelPadding() {
-      return matchMedia("(max-width: 560px)").matches
-        ? { top: 50, left: 24, right: 50, bottom: innerHeight * 0.48 + 30 }
-        : { top: 60, left: ixPanel.getBoundingClientRect().right + 40, right: 70, bottom: 50 };
+      const railRight = document.querySelector(".rail").getBoundingClientRect().right;
+      if (matchMedia("(max-width: 560px)").matches) {
+        return { top: 80, left: railRight + 12, right: 56, bottom: (ixPanel.hidden ? 60 : innerHeight * 0.48) + 30 };
+      }
+      const panelRight = ixPanel.hidden ? 0 : ixPanel.getBoundingClientRect().right;
+      return { top: 60, left: Math.max(railRight, panelRight) + 40, right: 80, bottom: 50 };
     }
 
     function fitPoints(points, options) {
@@ -1089,6 +1225,7 @@
           ${selected ? `<button type="button" class="ix-all">All stands</button>` : ""}
         </div>
         ${departureListHTML(diagram.listed, { showStand: !selected, stop, standLabel: selected })}
+        ${vehicleNoteHTML()}
         <div class="ix-legend">
           <svg width="28" height="10" viewBox="0 0 28 10" aria-hidden="true">
             <rect x="0.75" y="0.75" width="26.5" height="8.5" rx="1.5" fill="#ffc72c" stroke="#1f2933" stroke-width="1.5"/>
@@ -1144,11 +1281,13 @@
       syncOverlayVisibility();
       frameDiagram();
       diagram.timer = setInterval(refreshDiagram, 30_000);
+      trackStation(stop, () => { if (!route && diagram.stop === stop) renderPanel(); });
     }
 
     function closeDiagram({ restoreCamera = true } = {}) {
       if (!diagram.stop) return;
       clearInterval(diagram.timer);
+      untrackStation();
       if (route) clearRoute();
       removeLayers("ix-");
       diagram.marker?.getElement().classList.remove("is-open");
@@ -1187,7 +1326,9 @@
     }
 
     async function openRoute(next) {
+      keepVehiclesOnClose = true;  // the stop's buses stay on the map while its route is open
       closePopups();
+      keepVehiclesOnClose = false;
       if (!diagram.stop) routeCamera ??= { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
       if (route) clearRoute();
       route = next;
@@ -1205,6 +1346,15 @@
           setLineDirection(next, 0);
         } else {
           Object.assign(next, journeyFrom(next.data, next.dep.variant, next.dep.pos, next.dep.secs));
+          // The journey as a trip that can be drawn and followed, even before it sets off.
+          const [p, ...offsets] = next.data.variants[next.dep.variant];
+          const start = next.dep.at - offsets[next.dep.pos] * 60;
+          const key = `${next.line}|${next.dep.variant}|${start}`;
+          next.trip = findTrip(key) ?? { key, line: next.line, variant: next.dep.variant, start,
+            end: start + offsets.at(-1) * 60, offsets, stops: next.data.stops, headsign: next.dep.headsign,
+            pattern: patternGeometry(next.data.patterns[p], next.data.stops, isTramLine(next.line) ? "tram" : "bus"),
+            stopAt: next.dep.at };
+          next.vehicle = key;
         }
       } catch (err) {
         console.error(err);
@@ -1244,36 +1394,44 @@
       map.addSource("rt-src", {
         type: "geojson",
         data: collection([
-          { type: "Feature", properties: { kind: "line" }, geometry: { type: "LineString", coordinates: route.path } },
+          { type: "Feature", properties: { kind: "line" }, geometry: { type: "LineString",
+            coordinates: smoothPath(route.path, { maxCut: isTramLine(route.line) ? TRAM_CORNER_CUT_M : BUS_CORNER_CUT_M }) } },
           ...stops.map((st, i) => point(st.lngLat, {
             kind: "stop", end: i === 0 || i === stops.length - 1,
             label: st.clock ? `${st.clock}  ${st.name}` : st.name
           }))
         ])
       });
+      // Fade the map behind the route so its stops read clearly against the street names.
+      const [[w, so], [e, n]] = MAX_BOUNDS;
+      map.addSource("rt-wash", { type: "geojson", data: { type: "Feature", properties: {},
+        geometry: { type: "Polygon", coordinates: [[[w, so], [e, so], [e, n], [w, n], [w, so]]] } } });
+      map.addLayer({ id: "rt-wash", type: "fill", source: "rt-wash",
+        paint: { "fill-color": theme.wash, "fill-opacity": theme.routeWash } }, firstLayer("ix-wash", "ix-context-buildings", "fleet-icon", "veh-dot"));
       const isLine = ["==", ["get", "kind"], "line"], isStop = ["==", ["get", "kind"], "stop"];
       map.addLayer({ id: "rt-casing", type: "line", source: "rt-src", filter: isLine,
-        layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": theme.routeCasing, "line-width": 9 } });
+        layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": theme.routeCasing, "line-width": 9 } }, firstLayer("fleet-icon", "veh-dot"));
       map.addLayer({ id: "rt-line", type: "line", source: "rt-src", filter: isLine,
-        layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": colour, "line-width": 5 } });
+        layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": colour, "line-width": 5 } }, firstLayer("fleet-icon", "veh-dot"));
       map.addLayer({ id: "rt-stops", type: "circle", source: "rt-src", filter: isStop,
         paint: {
           "circle-radius": ["case", ["get", "end"], 6, 3.5],
           "circle-color": ["case", ["get", "end"], colour, "#ffffff"],
           "circle-stroke-color": ["case", ["get", "end"], "#ffffff", colour],
           "circle-stroke-width": 2
-        } });
+        } }, firstLayer("fleet-icon", "veh-dot"));
       map.addLayer({ id: "rt-labels", type: "symbol", source: "rt-src", filter: isStop,
         layout: {
-          "text-field": ["get", "label"], "text-font": LABEL_FONT, "text-size": ["case", ["get", "end"], 14, 12],
-          "text-anchor": "left", "text-offset": [0.9, 0], "text-optional": true,
+          "text-field": ["get", "label"], "text-font": LABEL_FONT_BOLD, "text-size": ["case", ["get", "end"], 15, 13],
+          "text-anchor": "left", "text-offset": [0.9, 0], "text-optional": true, "text-letter-spacing": 0.02,
           "symbol-sort-key": ["case", ["get", "end"], 0, 1]  // first and last stop win label space
         },
-        paint: { "text-color": theme.standText, "text-halo-color": theme.routeCasing, "text-halo-width": 1.6 } });
+        paint: { "text-color": theme.routeText, "text-halo-color": theme.routeHalo, "text-halo-width": 2.2, "text-halo-blur": 0.3 } }, firstLayer("fleet-icon", "veh-dot"));
     }
 
     // Drop the route without moving the map or redrawing the panel.
     function clearRoute() {
+      stopFollowing();
       route = null;
       removeLayers("rt-");
     }
@@ -1285,8 +1443,9 @@
       if (diagram.stop) {
         redrawDiagram();
         frameDiagram();
-      } else if (routeCamera) {
-        map.flyTo({ ...routeCamera, duration: 1000 });
+      } else {
+        if (routeCamera) map.flyTo({ ...routeCamera, duration: 1000 });
+        untrackStation();  // the popup they came from has gone
       }
       routeCamera = null;
       renderPanel();
@@ -1300,16 +1459,22 @@
       let head;
       if (kind === "journey") {
         const last = stops?.at(-1);
-        ixTitle.textContent = route.fromDiagram ? diagram.stop.name : route.stopName;
+        ixTitle.textContent = route.fromDiagram ? diagram.stop.name : route.clicked ? tracked.stop?.name ?? route.stopName : route.stopName;
         ixHint.textContent = isTramLine(route.line) ? "Tram journey" : "Bus journey";
         head = `${back}
           <div class="route-head">${pill}
             <div>
               <p class="route-dest">${esc(dep.headsign)}</p>
-              <p class="ix-hint">Leaves ${route.fromDiagram ? esc(dep.stand) : esc(route.stopName)} at ${dep.clock}${
+              <p class="ix-hint" ${route.vehicle ? 'id="veh-next"' : ""}>${route.clicked ? `Next stop ${esc(route.stopName)}` : `Leaves ${
+                route.fromDiagram ? esc(dep.stand) : esc(route.stopName)}`} at ${dep.clock}${
                 last ? ` · ${last.mins} min to ${esc(last.name)}` : ""}</p>
             </div>
-          </div>`;
+          </div>${route.vehicle ? `
+          <div class="veh-bar">
+            <span class="veh-status" id="veh-status"></span>
+            <button type="button" class="veh-follow" aria-pressed="${following === route.vehicle}">${
+              following === route.vehicle ? "Stop following" : `Follow this ${isTramLine(route.line) ? "tram" : "bus"}`}</button>
+          </div>` : ""}`;
       } else {
         ixTitle.textContent = isTramLine(route.line) ? lineName : `Route ${lineName}`;
         ixHint.textContent = [META.lines[route.line][1], META.lines[route.line][2]].filter(Boolean).join(" · ");
@@ -1331,6 +1496,7 @@
           <span class="route-time">${st.clock ?? (i === 0 ? "Start" : `+${st.mins}`)}</span>
           <span class="route-name">${esc(st.name)}${st.town ? `<small>${esc(st.town)}</small>` : ""}</span>
         </li>`).join("");
+      queueMicrotask(updateVehicleCard);
       ixBody.innerHTML = `${head}<ol class="route-stops">${rows}</ol>
         <p class="dep-note">${kind === "line" ? "Minutes from the start on a typical journey. Tap a stop to zoom to it." :
           "Scheduled times from the TfGM timetable. Tap a stop to zoom to it."}</p>`;
@@ -1342,6 +1508,7 @@
     });
     document.addEventListener("keydown", e => {
       if (e.key !== "Escape" || e.target === searchInput) return;
+      if (following) return stopFollowing();
       if (route) hideRoute();
       else closeDiagram();
     });
@@ -1349,6 +1516,8 @@
       if (e.type === "keydown" && e.key !== "Enter") return;
       if (e.target.closest(".ix-all")) return selectStand(null);
       if (e.target.closest(".ix-back")) return hideRoute();
+      if (e.target.closest(".veh-show")) return showAllVehicles();
+      if (e.target.closest(".veh-follow")) return following === route?.vehicle ? stopFollowing() : startFollowing(route.vehicle);
       const dirButton = e.target.closest("[data-dir]");
       if (dirButton && route?.kind === "line") {
         setLineDirection(route, Number(dirButton.dataset.dir));
@@ -1378,6 +1547,622 @@
       map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
     }
+
+    // ---- Buses on the move ---------------------------------------------------------------
+    // While a stop, tram stop or interchange is open, every bus or tram on a journey through it
+    // is drawn where the timetable says it is right now, moving along its route. These are
+    // scheduled positions: replace journeysThrough() with a live feed (the Bus Open Data
+    // Service's vehicle locations) to show real ones; the drawing stays the same.
+    const VEHICLE_WINDOW = 3 * 3600;  // journeys calling within this many seconds of now
+    const tracked = { stop: null, trips: [], onChange: null, timer: null, token: 0 };
+    let keepVehiclesOnClose = false;  // set while a popup closes because one of its buses was opened
+
+    // ---- Where vehicles run ---------------------------------------------------------------
+    // Each journey pattern gets, once: a "track" (its path with corners rounded off, the same way
+    // the route line is drawn), the distance along that track to every stop, and a speed profile
+    // so vehicles slow for corners. All cached on the pattern, which every trip on it shares.
+
+    // Cumulative distance in metres at each point of a path.
+    function pathLengths(path) {
+      const cum = [0];
+      for (let k = 1; k < path.length; k++) {
+        const a = path[k - 1], b = path[k];
+        const kx = 111320 * Math.cos(a[1] * Math.PI / 180);
+        cum.push(cum[k - 1] + Math.hypot((b[0] - a[0]) * kx, (b[1] - a[1]) * 110540));
+      }
+      return cum;
+    }
+
+    // The segment (k to k+1) containing distance d.
+    function segmentAt(cum, d) {
+      let lo = 0, hi = cum.length - 2;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (cum[mid] <= d) lo = mid;
+        else hi = mid - 1;
+      }
+      return Math.max(0, lo);
+    }
+
+    // Nearest point to (lng, lat) on segment i: distance along the path and metres off it.
+    function projectOnSegment(path, cum, lng, lat, i) {
+      const kx = 111320 * Math.cos(lat * Math.PI / 180);
+      const ax = (path[i][0] - lng) * kx, ay = (path[i][1] - lat) * 110540;
+      const bx = (path[i + 1][0] - lng) * kx, by = (path[i + 1][1] - lat) * 110540;
+      const dx = bx - ax, dy = by - ay;
+      const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1e-9)));
+      return { d: cum[i] + t * (cum[i + 1] - cum[i]), off: Math.hypot(ax + t * dx, ay + t * dy) };
+    }
+
+    function patternGeometry(pattern, stops, mode = "bus") {
+      if (pattern.cum) return pattern;
+      const raw = pattern.path, rawCum = pathLengths(raw);
+
+      // Where each stop is along the timetable's path. cuts[k] is the path point just before
+      // stop k, so the stop lies on the stretch from there to the next point: project it onto
+      // that stretch. If it sits well off it, search the rest of the path ahead of the last stop.
+      let prev = 0;
+      const rawStop = pattern.stops.map((s, k) => {
+        if (raw.length < 2) return 0;
+        const [, , lng, lat] = stops[s];
+        let best = projectOnSegment(raw, rawCum, lng, lat, Math.min(pattern.cuts[k], raw.length - 2));
+        if (best.off > 30) {
+          for (let i = 0; i < raw.length - 1; i++) {
+            const hit = projectOnSegment(raw, rawCum, lng, lat, i);
+            if (hit.d >= prev - 1 && hit.off < best.off) best = hit;
+          }
+        }
+        prev = Math.max(prev, best.d);  // stops never run backwards along the route
+        return prev;
+      });
+
+      // Vehicles run along the rounded corners the route is drawn with. Rounding shortens the
+      // path a little at each corner, so find each stop again on the track, near where it was.
+      const track = raw.length > 2 ? smoothPath(raw, { maxCut: mode === "tram" ? TRAM_CORNER_CUT_M : BUS_CORNER_CUT_M }) : raw;
+      const cum = pathLengths(track);
+      const scale = rawCum.at(-1) ? cum.at(-1) / rawCum.at(-1) : 1;
+      prev = 0;
+      pattern.stopDist = rawStop.map((dRaw, k) => {
+        if (track.length < 2) return 0;
+        const [, , lng, lat] = stops[pattern.stops[k]];
+        const guess = dRaw * scale;
+        let best = null;
+        const last = segmentAt(cum, guess + 150);
+        for (let i = segmentAt(cum, Math.max(prev, guess - 150)); i <= last; i++) {
+          const hit = projectOnSegment(track, cum, lng, lat, i);
+          if (!best || hit.off < best.off) best = hit;
+        }
+        prev = Math.max(prev, best ? best.d : guess);
+        return prev;
+      });
+      pattern.track = track;
+      pattern.cum = cum;
+      cornerProfile(pattern, mode);
+      return pattern;
+    }
+
+    function pointAlong({ track, cum }, d) {
+      if (track.length < 2) return track[0];
+      const k = segmentAt(cum, d);
+      const span = cum[k + 1] - cum[k];
+      const t = span ? Math.min(1, Math.max(0, (d - cum[k]) / span)) : 0;
+      return [track[k][0] + (track[k + 1][0] - track[k][0]) * t, track[k][1] + (track[k + 1][1] - track[k][1]) * t];
+    }
+
+    // ---- Slowing for corners ------------------------------------------------------------
+    // Along each track, a vehicle's speed drops where the track turns: down to these shares of
+    // its normal speed for a right-angle bend, braking before it and picking up after. Times at
+    // stops don't change; between stops the time is shared out by the profile, so a vehicle runs
+    // a little quicker on the straights and slower through the bends.
+    const BUS_CORNER_CUT_M = 12, TRAM_CORNER_CUT_M = 25;  // corner rounding, matching the drawn lines
+    const CORNER_SPEED = { bus: 0.35, tram: 0.45 };
+    const PROFILE_STEP_M = 5;    // resolution of the speed profile
+    const TURN_WINDOW_M = 12;    // a turn is the change of direction over this far either side
+    const BRAKE_M = 15;          // slowing down and speeding up spread over this distance
+
+    function cornerProfile(pattern, mode) {
+      const { track, cum } = pattern;
+      const total = cum.at(-1);
+      if (!(total > 0) || track.length < 2) {
+        pattern.cost = [0, 0];
+        pattern.costStep = Math.max(total, 1);
+        return;
+      }
+      const n = Math.max(2, Math.ceil(total / PROFILE_STEP_M) + 1);
+      const step = total / (n - 1);
+      const heading = [];
+      for (let k = 1; k < track.length; k++) {
+        const kx = Math.cos(track[k][1] * Math.PI / 180);
+        heading.push(Math.atan2((track[k][0] - track[k - 1][0]) * kx, track[k][1] - track[k - 1][1]));
+      }
+      const headingAt = d => heading[Math.min(heading.length - 1, segmentAt(cum, d))];
+      const slowest = CORNER_SPEED[mode] ?? CORNER_SPEED.bus;
+      const speed = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        const d = i * step;
+        let turn = Math.abs(headingAt(Math.min(total, d + TURN_WINDOW_M)) - headingAt(Math.max(0, d - TURN_WINDOW_M))) % (2 * Math.PI);
+        if (turn > Math.PI) turn = 2 * Math.PI - turn;
+        speed[i] = 1 - (1 - slowest) * Math.min(1, turn / (Math.PI / 2));
+      }
+      // Brake before a bend and pick up after it: take the slowest speed nearby, then smooth that.
+      const r = Math.max(1, Math.round(BRAKE_M / step));
+      const near = new Float64Array(n), eased = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        let m = 1;
+        for (let j = Math.max(0, i - r); j <= Math.min(n - 1, i + r); j++) m = Math.min(m, speed[j]);
+        near[i] = m;
+      }
+      for (let i = 0; i < n; i++) {
+        let sum = 0, count = 0;
+        for (let j = Math.max(0, i - r); j <= Math.min(n - 1, i + r); j++) { sum += near[j]; count++; }
+        eased[i] = sum / count;
+      }
+      // "Cost" of reaching each point: metres at full speed count 1, at half speed 2, and so on.
+      const cost = new Float64Array(n);
+      for (let i = 1; i < n; i++) cost[i] = cost[i - 1] + step * 2 / (eased[i - 1] + eased[i]);
+      pattern.cost = cost;
+      pattern.costStep = step;
+    }
+
+    function costAt({ cost, costStep }, d) {
+      const x = Math.max(0, Math.min(cost.length - 1, d / costStep));
+      const i = Math.min(cost.length - 2, Math.floor(x));
+      return cost[i] + (cost[i + 1] - cost[i]) * (x - i);
+    }
+
+    function distanceForCost({ cost, costStep }, c) {
+      let lo = 0, hi = cost.length - 2;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (cost[mid] <= c) lo = mid;
+        else hi = mid - 1;
+      }
+      const span = cost[lo + 1] - cost[lo];
+      return (lo + (span ? Math.max(0, Math.min(1, (c - cost[lo]) / span)) : 0)) * costStep;
+    }
+
+    // The point a fraction `f` of the way (in time) from d0 to d1, allowing for bends.
+    function alongWithCorners(pattern, d0, d1, f) {
+      if (f <= 0) return d0;
+      if (f >= 1) return d1;
+      const c0 = costAt(pattern, d0), c1 = costAt(pattern, d1);
+      return c1 > c0 ? Math.max(d0, Math.min(d1, distanceForCost(pattern, c0 + (c1 - c0) * f))) : d0 + (d1 - d0) * f;
+    }
+
+    // ...and the inverse: what fraction of the time from d0 to d1 it takes to reach d.
+    function cornerTimeFraction(pattern, d0, d1, d) {
+      const c0 = costAt(pattern, d0), c1 = costAt(pattern, d1);
+      return c1 > c0 ? Math.max(0, Math.min(1, (costAt(pattern, d) - c0) / (c1 - c0))) : (d1 > d0 ? (d - d0) / (d1 - d0) : 0);
+    }
+
+    // Every journey through `stop` that is under way now (or about to be), with its timings.
+    async function journeysThrough(stop) {
+      const now = londonNow();
+      const calls = [];
+      for (const offset of [-1, 0]) {
+        const runs = stop.tables.services.map(svc => serviceRunsOn(svc, now.y, now.m, now.d + offset));
+        for (const [secs, line, headsign, svc, , variant, pos] of stop.departures) {
+          const at = offset * 86400 + secs;  // seconds after today's midnight
+          if (Math.abs(at - now.secs) <= VEHICLE_WINDOW && runs[svc]) calls.push({ at, line, headsign, variant, pos });
+        }
+      }
+      const lines = [...new Set(calls.map(c => c.line))];
+      const data = new Map(await Promise.all(lines.map(async l => [l, await loadLine(l)])));
+      const trips = new Map();  // a journey calling at two of a cluster's stops is still one bus
+      for (const c of calls) {
+        const d = data.get(c.line);
+        const [p, ...offsets] = d.variants[c.variant];
+        const start = c.at - offsets[c.pos] * 60;
+        const end = start + offsets.at(-1) * 60;
+        if (end < now.secs - 1800 || start > now.secs + 60) continue;  // late buses can run past their end
+        const key = `${c.line}|${c.variant}|${start}`;
+        if (!trips.has(key)) {
+          trips.set(key, { key, line: c.line, variant: c.variant, headsign: stop.tables.headsigns[c.headsign],
+            pattern: patternGeometry(d.patterns[p], d.stops, isTramLine(c.line) ? "tram" : "bus"),
+            stops: d.stops, offsets, start, end, stopAt: c.at });
+        }
+      }
+      return [...trips.values()];
+    }
+
+    // Trams stop at every stop: they leave on time, speed up, cruise, brake into the next stop
+    // and wait at the platform. Buses only stop when someone's waiting, so they keep a steady
+    // pace between timetabled stops. Both slow for bends (see "Slowing for corners").
+    const TRAM_DWELL_SECS = 25;
+    const TRAM_DWELL_SHARE = 0.25;  // ...but never more than this share of the time between stops
+    const TRAM_MIN_DWELL_SECS = 8;  // the shortest wait, when the timetable leaves little time
+    const TRAM_ACCEL_SHARE = 0.25;  // share of the running time spent speeding up, and again braking
+    const TRAM_TOP_SPEED = 22.2;    // m/s: Metrolink's 80 km/h
+
+    // Each stop's time in seconds from the start of the journey. Timetables give whole minutes,
+    // so neighbouring stops can share one; those are spread out by distance so a vehicle never
+    // covers the gap between them in no time at all (which made buses jump hundreds of metres).
+    function stopTimes(trip) {
+      if (trip.stopTimes) return trip.stopTimes;
+      const T = trip.offsets.map(m => m * 60), D = trip.pattern.stopDist, out = T.slice();
+      for (let i = 0; i < T.length;) {
+        let k = i;
+        while (k + 1 < T.length && T[k + 1] === T[i]) k++;
+        if (k > i && k + 1 < T.length) {
+          // Stops i..k share a minute: spread them towards the next stop's time.
+          const span = D[k + 1] - D[i], dt = T[k + 1] - T[i];
+          for (let m = i + 1; m <= k; m++) out[m] = T[i] + (span ? (D[m] - D[i]) / span : (m - i) / (k + 1 - i)) * dt;
+        } else if (k > i && i > 0) {
+          // The last few stops share the final minute: spread them between the stop before
+          // (as already spread) and the end.
+          const from = out[i - 1], span = D[k] - D[i - 1], dt = T[k] - from;
+          for (let m = i; m < k; m++) out[m] = from + (span ? (D[m] - D[i - 1]) / span : (m - i + 1) / (k - i + 1)) * dt;
+        }
+        i = k + 1;
+      }
+      return (trip.stopTimes = out);
+    }
+
+    // Share of the distance covered after share `u` of the running time, for a vehicle that
+    // speeds up evenly, cruises, then brakes evenly. Its top speed is only a third above its
+    // average, so short hops between stops don't need unrealistic bursts of speed.
+    function accelerateCruiseBrake(u, a = TRAM_ACCEL_SHARE) {
+      const top = 1 / (1 - a);
+      if (u < a) return 0.5 * top * u * u / a;
+      if (u > 1 - a) return 1 - 0.5 * top * (1 - u) * (1 - u) / a;
+      return 0.5 * top * a + top * (u - a);
+    }
+
+    // How long a tram waits, and how gently it speeds up, between two stops `travel` seconds
+    // apart. `metres` allows for bends (they count extra). Where the timetable is tight, the
+    // wait shortens and the tram reaches cruising speed sooner, rather than go over 80 km/h.
+    function tramTiming(travel, metres) {
+      let dwell = Math.min(TRAM_DWELL_SECS, TRAM_DWELL_SHARE * travel);
+      let accel = TRAM_ACCEL_SHARE;
+      const peak = () => metres / (travel - dwell) / (1 - accel);
+      if (peak() > TRAM_TOP_SPEED) {
+        const needed = travel - metres / ((1 - accel) * TRAM_TOP_SPEED);
+        dwell = Math.max(Math.min(TRAM_MIN_DWELL_SECS, dwell), Math.min(dwell, needed));
+      }
+      if (peak() > TRAM_TOP_SPEED) accel = Math.max(0.08, 1 - metres / ((travel - dwell) * TRAM_TOP_SPEED));
+      return { dwell, accel };
+    }
+
+    function tramDistanceAt(trip, e) {
+      const T = stopTimes(trip), D = trip.pattern.stopDist;
+      if (e <= T[0]) return { d: D[0], next: Math.min(1, T.length - 1) };
+      let j = 0;
+      while (j + 1 < T.length && T[j + 1] <= e) j++;
+      if (j + 1 >= T.length) return { d: D[j], next: j };
+      const travel = T[j + 1] - T[j];
+      const P = trip.pattern;
+      const { dwell, accel } = tramTiming(travel, costAt(P, D[j + 1]) - costAt(P, D[j]));
+      const arrive = T[j + 1] - dwell;
+      if (e >= arrive) return { d: D[j + 1], next: j + 1 };     // waiting at the platform
+      const f = accelerateCruiseBrake((e - T[j]) / (arrive - T[j]), accel);
+      return { d: alongWithCorners(trip.pattern, D[j], D[j + 1], f), next: j + 1 };
+    }
+
+    // How far along its path a trip is `e` seconds after it starts, and the next stop's index.
+    function distanceAt(trip, e) {
+      if (isTramLine(trip.line)) return tramDistanceAt(trip, e);
+      const T = stopTimes(trip), D = trip.pattern.stopDist;
+      if (e <= T[0]) return { d: D[0], next: Math.min(1, T.length - 1) };
+      let j = 0;
+      while (j + 1 < T.length && T[j + 1] <= e) j++;
+      if (j + 1 >= T.length) return { d: D[j], next: j };
+      const f = (e - T[j]) / (T[j + 1] - T[j]);
+      return { d: alongWithCorners(trip.pattern, D[j], D[j + 1], f), next: j + 1 };
+    }
+
+    // The inverse: seconds after the start when the timetable has the trip at distance `d`.
+    function timeAtDistance(trip, d) {
+      const T = stopTimes(trip), D = trip.pattern.stopDist;
+      let j = 0;
+      while (j + 1 < D.length && D[j + 1] <= d) j++;
+      if (j + 1 >= D.length || D[j + 1] === D[j]) return T[j];
+      return T[j] + cornerTimeFraction(trip.pattern, D[j], D[j + 1], d) * (T[j + 1] - T[j]);
+    }
+
+    // A late bus is where the timetable had it `delay` seconds ago.
+    const delayOf = trip => trip.live?.delay ?? 0;
+    const tripClock = (trip, now) => now - trip.start - delayOf(trip);
+    const isRunning = (trip, now) => { const e = tripClock(trip, now); return e >= 0 && e <= trip.offsets.at(-1) * 60; };
+
+    // Where a trip is at `now` (seconds after midnight): position, and the next stop's index.
+    function tripPosition(trip, now) {
+      const { d, next } = distanceAt(trip, tripClock(trip, now));
+      return { lngLat: pointAlong(trip.pattern, d), next };
+    }
+
+    const nowSeconds = () => londonNow().secs + (Date.now() % 1000) / 1000;
+    const runningTrips = (now = nowSeconds()) => tracked.trips.filter(t => isRunning(t, now));
+
+    function vehicleData() {
+      const now = nowSeconds();
+      return collection(dotTrips().flatMap(trip => {
+        // A followed bus is drawn waiting at its first stop until it sets off.
+        const waiting = trip.key === following && tripClock(trip, now) < 0;
+        if (!isRunning(trip, now) && !waiting) return [];
+        if (fleetOn() && fleet.trips.some(t => t.key === trip.key)) return [];  // drawn as a moving tram
+        return [point(tripPosition(trip, now).lngLat, {
+          key: trip.key, route: shortLineName(trip.line), passed: now - delayOf(trip) > trip.stopAt,
+          live: !!trip.live, followed: trip.key === following,
+          // Dark buses with white numbers, so they don't look like the yellow interchange markers.
+          colour: META.lines[trip.line][5] || "#1f2933", text: "#ffffff"
+        })];
+      }));
+    }
+
+    function addVehiclesToMap() {
+      if (!(tracked.stop || route?.trip) || map.getSource("veh-src")) return;
+      map.addSource("veh-src", { type: "geojson", data: vehicleData() });
+      // Buses that have already left the stop are paler than those still to come.
+      const opacity = ["case", ["get", "passed"], 0.55, 1];
+      map.addLayer({ id: "veh-dot", type: "circle", source: "veh-src",
+        paint: {
+          // Zoom has to be the outermost expression, so the followed bus's bigger size goes inside it.
+          "circle-radius": ["interpolate", ["linear"], ["zoom"],
+            9, ["case", ["get", "followed"], 11, 8], 14, ["case", ["get", "followed"], 15, 11],
+            18, ["case", ["get", "followed"], 19, 14]],
+          "circle-color": ["get", "colour"], "circle-opacity": opacity,
+          "circle-stroke-color": ["case", ["get", "followed"], "#2563eb", ["get", "live"], "#22c55e", "#ffffff"],
+          "circle-stroke-width": ["case", ["get", "followed"], 4, ["get", "live"], 3, 2], "circle-stroke-opacity": opacity
+        } });
+      map.addLayer({ id: "veh-label", type: "symbol", source: "veh-src", minzoom: 9,
+        layout: { "text-field": ["get", "route"], "text-font": LABEL_FONT_BOLD,
+          "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 16, 11],
+          "text-allow-overlap": true, "text-ignore-placement": true },
+        paint: { "text-color": ["get", "text"], "text-opacity": opacity } });
+    }
+
+    function drawVehicles() {
+      const source = map.getSource("veh-src");
+      if (source) source.setData(vehicleData());
+      else addVehiclesToMap();
+    }
+
+    async function trackStation(stop, onChange) {
+      untrackStation();
+      const token = tracked.token;
+      Object.assign(tracked, { stop, onChange });
+      const refresh = async () => {
+        try {
+          const trips = await journeysThrough(stop);
+          if (tracked.token !== token) return;  // a different stop was opened meanwhile
+          for (const t of trips) t.live = tracked.trips.find(old => old.key === t.key)?.live;  // keep until re-matched
+          tracked.trips = trips;
+          matchLive();
+          drawVehicles();
+          tracked.onChange?.();
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      tracked.timer = setInterval(refresh, 30_000);
+      startLive();
+      await refresh();
+    }
+
+    function untrackStation() {
+      tracked.token++;
+      clearInterval(tracked.timer);
+      stopLive();
+      stopFollowing();
+      Object.assign(tracked, { stop: null, trips: [], onChange: null });
+      removeLayers("veh-");
+    }
+
+
+    // ---- Live positions (optional) -----------------------------------------------------
+    // Served by tools/live_server.py with a Bus Open Data Service key, api/live returns real
+    // bus positions. Each is matched to its timetabled journey (same route number, same start
+    // time, on its route) and its delay found from how far along the route it really is.
+    // Opened straight from disk, or without a key, buses stay at their timetabled positions.
+    const live = { state: location.protocol.startsWith("http") ? "waiting" : "unavailable", vehicles: [], timer: null };
+    const LIVE_POLL_MS = 15_000;
+    const LIVE_STALE_SECS = 300;  // ignore positions older than this
+
+    // An ISO time as seconds after today's London midnight (negative for yesterday).
+    function londonSeconds(iso) {
+      const date = iso && new Date(iso);
+      if (!date || isNaN(date)) return null;
+      const p = Object.fromEntries(londonClock.formatToParts(date).map(x => [x.type, Number(x.value)]));
+      const today = londonNow();
+      const days = Math.round((Date.UTC(p.year, p.month - 1, p.day) - Date.UTC(today.y, today.m - 1, today.d)) / 86400000);
+      return days * 86400 + p.hour * 3600 + p.minute * 60 + p.second;
+    }
+
+    async function pollLive() {
+      if (live.state === "unavailable") return;
+      try {
+        const body = await (await fetch("api/live", { cache: "no-store" })).json();
+        if (!body.ok) {
+          live.state = "off";
+          return;
+        }
+        live.state = "on";
+        live.vehicles = body.vehicles.map(v => ({ ...v, origin: londonSeconds(v.originAimed), recorded: londonSeconds(v.recordedAt) }));
+        matchLive();
+      } catch {
+        live.state = "unavailable";  // not served by tools/live_server.py
+      }
+    }
+    function startLive() {
+      if (live.state === "unavailable" || live.timer) return;
+      pollLive();
+      live.timer = setInterval(pollLive, LIVE_POLL_MS);
+    }
+    function stopLive() {
+      clearInterval(live.timer);
+      live.timer = null;
+    }
+
+    // Project a real position onto the trip's path: distance along it and how far off it is,
+    // preferring the stretch near where the timetable expects it (routes can loop back).
+    function projectOntoTrip(trip, lngLat, expectedD) {
+      const { track: path, cum } = trip.pattern;
+      const kx = 111320 * Math.cos(lngLat[1] * Math.PI / 180);
+      let best = null;
+      for (let k = 1; k < path.length; k++) {
+        const ax = (path[k - 1][0] - lngLat[0]) * kx, ay = (path[k - 1][1] - lngLat[1]) * 110540;
+        const bx = (path[k][0] - lngLat[0]) * kx, by = (path[k][1] - lngLat[1]) * 110540;
+        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy || 1e-9;
+        const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+        const off = Math.hypot(ax + t * dx, ay + t * dy);
+        const d = cum[k - 1] + t * (cum[k] - cum[k - 1]);
+        const score = off + 0.05 * Math.abs(d - expectedD);
+        if (!best || score < best.score) best = { d, off, score };
+      }
+      return best;
+    }
+
+    function matchLive() {
+      if (live.state !== "on") return;
+      const now = nowSeconds();
+      for (const trip of dotTrips()) {
+        trip.live = undefined;
+        const name = META.lines[trip.line][0];
+        for (const v of live.vehicles) {
+          if (v.line !== name || v.origin === null || v.recorded === null) continue;
+          if (Math.abs(v.origin - trip.start) > 120 || now - v.recorded > LIVE_STALE_SECS) continue;
+          const expected = distanceAt(trip, v.recorded - trip.start).d;
+          const hit = projectOntoTrip(trip, v.lngLat, expected);
+          if (!hit || hit.off > 150) continue;  // same number, different route (49 numbers are shared)
+          // A bus waiting at its first stop before it's due isn't early.
+          const waiting = hit.d <= trip.pattern.stopDist[0] + 30 && v.recorded < trip.start;
+          const delay = waiting ? 0 : v.recorded - (trip.start + timeAtDistance(trip, hit.d));
+          if (!trip.live || hit.off < trip.live.off) trip.live = { delay, off: hit.off, vehicle: v.vehicle, recorded: v.recorded };
+        }
+      }
+    }
+
+    function vehicleStatus(trip) {
+      if (trip?.live) {
+        const m = Math.round(trip.live.delay / 60);
+        if (m >= 1) return { text: `Live · ${m} min late`, cls: "late" };
+        if (m <= -1) return { text: `Live · ${-m} min early`, cls: "early" };
+        return { text: "Live · on time", cls: "on-time" };
+      }
+      if (trip && tripClock(trip, nowSeconds()) < 0) return { text: "Not departed yet", cls: "none" };
+      if (trip && isTramLine(trip.line)) return { text: "Timetable position", cls: "none" };  // no live tram positions
+      if (live.state === "on") return { text: "No live signal from this bus · timetable position", cls: "none" };
+      return { text: "Timetable position · early/late needs live data", cls: "none" };
+    }
+
+    // ---- Follow a bus ------------------------------------------------------------------
+    let following = null;  // key of the followed journey
+    // A journey by key, from the open stop's buses or the network's trams.
+    const findTrip = key => tracked.trips.find(t => t.key === key) ?? fleet.trips.find(t => t.key === key) ??
+      (route?.trip?.key === key ? route.trip : undefined);
+    // Trips drawn as dots: the open stop's, plus the open journey if it isn't among them.
+    const dotTrips = () => route?.trip && !tracked.trips.some(t => t.key === route.trip.key)
+      ? [...tracked.trips, route.trip] : tracked.trips;
+
+    function startFollowing(key) {
+      const trip = findTrip(key);
+      if (!trip) return;
+      following = key;
+      followIntro = true;  // let the first glide in finish before frames take over
+      map.easeTo({ center: tripPosition(trip, nowSeconds()).lngLat, zoom: Math.max(map.getZoom(), 15.5),
+        padding: panelPadding(), duration: 900 });
+      map.once("moveend", () => { followIntro = false; });
+      addVehiclesToMap();
+      renderPanel();
+    }
+
+    function stopFollowing(message) {
+      if (!following) return;
+      following = null;
+      if (route) renderPanel();
+      if (message) document.getElementById("veh-next")?.replaceChildren(message);
+    }
+
+    // Every animation frame puts the camera on the bus. While the user is zooming or the
+    // opening glide is running, frames are skipped rather than fighting them.
+    let followIntro = false;
+    let userMoving = false;
+    map.on("movestart", e => { if (e.originalEvent) userMoving = true; });
+    map.on("moveend", () => { userMoving = false; });
+    // Re-centring every frame cancels the map's own gestures, so watch the pointer directly:
+    // dragging the map ends following; wheel or pinch zooming just pauses it briefly.
+    let gestureUntil = 0;
+    const gestureArea = map.getCanvasContainer();
+    gestureArea.addEventListener("wheel", () => { gestureUntil = performance.now() + 400; }, { passive: true });
+    gestureArea.addEventListener("pointermove", e => { if (following && e.buttons && e.pointerType === "mouse") stopFollowing(); });
+    gestureArea.addEventListener("touchmove", e => {
+      if (!following) return;
+      if (e.touches.length === 1) stopFollowing();
+      else gestureUntil = performance.now() + 400;  // two fingers: zooming
+    }, { passive: true });
+
+    function followFrame() {
+      if (!following || followIntro || userMoving || performance.now() < gestureUntil) return;
+      const trip = findTrip(following);
+      const now = nowSeconds();
+      if (!trip || tripClock(trip, now) > trip.offsets.at(-1) * 60) return stopFollowing("This journey has finished.");
+      map.jumpTo({ center: tripPosition(trip, now).lngLat, padding: panelPadding() });
+    }
+
+
+    // Keeps the open bus card current: live status and next stop.
+    function updateVehicleCard() {
+      if (!route?.vehicle) return;
+      const trip = findTrip(route.vehicle);
+      const status = document.getElementById("veh-status");
+      if (status) {
+        const { text, cls } = vehicleStatus(trip);
+        status.textContent = text;
+        status.className = `veh-status ${cls}`;
+      }
+      const next = document.getElementById("veh-next");
+      const now = nowSeconds();
+      if (next && trip && tripClock(trip, now) < 0) {
+        const leaves = trip.start + delayOf(trip);
+        const mins = Math.max(0, Math.ceil((leaves - now) / 60));
+        next.textContent = `Waiting at ${trip.stops[trip.pattern.stops[0]][0]} · leaves at ${clockTime(leaves)}${
+          mins ? ` (in ${mins} min)` : ""}`;
+      } else if (next && trip && isRunning(trip, now)) {
+        const { next: k } = tripPosition(trip, now);
+        const due = trip.start + trip.offsets[k] * 60 + delayOf(trip);
+        next.textContent = `Next stop ${trip.stops[trip.pattern.stops[k]][0]} at ${clockTime(due)}${trip.live ? " (expected)" : ""}`;
+      }
+    }
+
+    // "12 buses on these routes now" with a button that zooms out to show them all.
+    function vehicleNoteHTML() {
+      if (!tracked.stop) return "";
+      const running = runningTrips();
+      if (!running.length) return "";
+      const trams = running.filter(t => isTramLine(t.line)).length;
+      const what = trams === running.length ? "tram" : trams ? "bus or tram" : "bus";
+      const plural = running.length === 1 ? what : what === "bus" ? "buses" : what === "tram" ? "trams" : "buses and trams";
+      return `
+        <div class="veh-note">
+          <span class="veh-swatch" aria-hidden="true"></span>
+          <span><strong>${running.length} ${plural}</strong> on these routes now${(() => {
+            const n = running.filter(t => t.live).length;
+            return n ? `, ${n} with live positions` : ", shown where the timetable puts them";
+          })()}</span>
+          <button type="button" class="veh-show">Show all</button>
+        </div>`;
+    }
+
+    function showAllVehicles() {
+      const now = nowSeconds();
+      const pts = runningTrips(now).map(t => tripPosition(t, now).lngLat);
+      if (tracked.stop?.lngLat) pts.push(tracked.stop.lngLat);
+      if (pts.length) fitPoints(pts, { maxZoom: 15 });
+    }
+
+    // Clicking a moving bus shows the rest of its journey from its next stop.
+    function openTrip(trip) {
+      const { next } = tripPosition(trip, nowSeconds());
+      const secs = trip.start + trip.offsets[next] * 60;
+      const stopName = trip.stops[trip.pattern.stops[next]][0];
+      const dep = { line: trip.line, variant: trip.variant, pos: next, secs, at: secs, clock: clockTime(secs),
+        route: shortLineName(trip.line), colour: META.lines[trip.line][5], headsign: trip.headsign, stand: stopName };
+      openRoute({ kind: "journey", line: trip.line, dep, stopName, clicked: true, fromDiagram: !!diagram.stop });
+    }
+
+    map.on("click", "veh-dot", e => { const trip = findTrip(e.features[0].properties.key); if (trip) openTrip(trip); });
+    map.on("mouseenter", "veh-dot", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "veh-dot", () => { map.getCanvas().style.cursor = ""; });
 
     // ---- Interchange markers ---------------------------------------------------------
     const BUS_ICON = `<svg viewBox="0 0 24 24" fill="#1f2933" aria-hidden="true">
@@ -1461,7 +2246,7 @@
           tram ? [] : [point([lng, lat], { i, name, cluster: cluster >= 0 })]))
       });
       const visibility = stopsToggle.checked && !diagram.stop ? "visible" : "none";
-      const before = firstLayer("ix-wash", "rt-casing");  // beneath any open diagram or route
+      const before = firstLayer("ix-wash", "rt-wash", "rt-casing", "veh-dot");  // beneath any open diagram or route
       map.addLayer({
         id: "stops-dot", type: "circle", source: "stops", minzoom: STOPS_MIN_ZOOM,
         layout: { visibility },
@@ -1532,7 +2317,7 @@
         .addTo(map));
       try {
         const stop = {
-          name, borough: GM_STOPS.localities[locality],
+          name, borough: GM_STOPS.localities[locality], lngLat: [lng, lat],
           kind: indicator ? `Bus stop, ${describeIndicator(indicator)}` : "Bus stop",
           ...(await departureSource([i]))
         };
@@ -1576,8 +2361,9 @@
         console.error(err);
         return;
       }
-      const stop = { name, borough: GM_STOPS.localities[locality], kind: "Bus stops", ...source };
-      openDiagram(stop, null, clusterLayout(indexes, source.tables.stands));
+      const layout = clusterLayout(indexes, source.tables.stands);
+      const stop = { name, borough: GM_STOPS.localities[locality], kind: "Bus stops", lngLat: layout.origin, ...source };
+      openDiagram(stop, null, layout);
     }
 
     function openStop(i) {
@@ -1606,12 +2392,13 @@
         type: "geojson",
         data: collection([
           ...GM_METROLINK.network.flatMap(({ name, colour, paths }) => paths.map(path =>
-            ({ type: "Feature", properties: { kind: "line", name, colour }, geometry: { type: "LineString", coordinates: path } }))),
+            ({ type: "Feature", properties: { kind: "line", name, colour },
+               geometry: { type: "LineString", coordinates: smoothPath(path, { maxCut: TRAM_CORNER_CUT_M }) } }))),
           ...GM_METROLINK.stations.map(([name, lng, lat], s) => point([lng, lat], { kind: "station", name, s }))
         ])
       });
       const visibility = tramToggle.checked && !diagram.stop ? "visible" : "none";
-      const before = firstLayer("stops-dot", "ix-wash", "rt-casing");
+      const before = firstLayer("stops-dot", "ix-wash", "rt-wash", "rt-casing", "veh-dot");
       const isLine = ["==", ["get", "kind"], "line"], isStation = ["==", ["get", "kind"], "station"];
       map.addLayer({ id: "tram-casing", type: "line", source: "tram", filter: isLine,
         layout: { visibility, "line-cap": "round", "line-join": "round" },
@@ -1635,7 +2422,11 @@
 
     function syncTrams() {
       localStorage.setItem("gm-show-trams", String(tramToggle.checked));
-      if (tramToggle.checked && !window.GM_METROLINK) loadMetrolink().then(addMetrolinkToMap).catch(err => console.error(err));
+      if (tramToggle.checked) {
+        loadMetrolink().then(() => { addMetrolinkToMap(); startFleet(); }).catch(err => console.error(err));
+      } else {
+        stopFleet();
+      }
       syncOverlayVisibility();
     }
     tramToggle.checked = localStorage.getItem("gm-show-trams") !== "false";
@@ -1650,7 +2441,7 @@
         .setHTML(`<p class="popup-name">${esc(name)}</p><p class="popup-meta">Loading times…</p>`)
         .addTo(map));
       try {
-        const stop = { name, kind: "Metrolink stop", isTram: true, ...(await departureSource(platforms)) };
+        const stop = { name, kind: "Metrolink stop", isTram: true, lngLat: [lng, lat], ...(await departureSource(platforms)) };
         if (openPopups.has(popup)) departuresPopup(popup, stop);
       } catch (err) {
         console.error(err);
@@ -1665,11 +2456,174 @@
     map.on("mouseenter", "tram-stations", () => { if (!diagram.stop) map.getCanvas().style.cursor = "pointer"; });
     map.on("mouseleave", "tram-stations", () => { map.getCanvas().style.cursor = ""; });
 
+
+    // ---- Every tram, moving ------------------------------------------------------------
+    // While Metrolink is on, every tram in service is drawn where the timetable puts it now:
+    // a small top-down tram in its line's colour, turned to face along the track. The
+    // journeys are listed in data/metrolink.js; their paths and timings come from the line files.
+    const fleet = { trips: [], timer: null, token: 0 };
+    const fleetOn = () => tramToggle.checked && !!window.GM_METROLINK;
+
+    async function runningTrams() {
+      const now = londonNow();
+      const calls = [];
+      for (const offset of [-1, 0]) {
+        const runs = META.services.map(svc => serviceRunsOn(svc, now.y, now.m, now.d + offset));
+        for (const [line, variant, start, svc] of GM_METROLINK.trips) {
+          const s = offset * 86400 + start;
+          if (runs[svc] && s <= now.secs + 60 && s >= now.secs - 4 * 3600) calls.push({ line, variant, start: s });
+        }
+      }
+      const data = new Map(await Promise.all([...new Set(calls.map(c => c.line))].map(async l => [l, await loadLine(l)])));
+      const trips = [];
+      for (const { line, variant, start } of calls) {
+        const d = data.get(line);
+        const [p, ...offsets] = d.variants[variant];
+        const end = start + offsets.at(-1) * 60;
+        if (end < now.secs - 60) continue;
+        trips.push({ key: `${line}|${variant}|${start}`, line, variant, start, end, offsets, stops: d.stops,
+          pattern: patternGeometry(d.patterns[p], d.stops, "tram"), headsign: d.patterns[p].to, stopAt: Infinity });
+      }
+      return trips;
+    }
+
+    // Images: a two-car tram seen from above, nose to the right, one per line colour, with an
+    // arrowhead in front and a chevron on each car so its direction reads at any zoom. The
+    // image rotates with the tram, so the arrows always point the way it's travelling. Blank
+    // space behind balances the arrowhead, keeping the tram centred on its position.
+    function tramImage(colour) {
+      const w = 112, h = 26, c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const g = c.getContext("2d");
+      g.lineJoin = "round";
+      g.fillStyle = colour;
+      g.strokeStyle = "#ffffff";
+      g.lineWidth = 3;
+      for (const x of [21, 56]) {  // rear car, front car
+        g.beginPath();
+        g.roundRect(x, 4, 33, h - 8, x === 56 ? [3, 9, 9, 3] : [9, 3, 3, 9]);
+        g.fill();
+        g.stroke();
+      }
+      g.beginPath();  // arrowhead ahead of the nose
+      g.moveTo(93, 4);
+      g.lineTo(108, h / 2);
+      g.lineTo(93, h - 4);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.strokeStyle = "#ffffff";  // a chevron on each car
+      g.lineWidth = 3;
+      g.lineCap = "round";
+      for (const x of [33, 68]) {
+        g.beginPath();
+        g.moveTo(x, 8.5);
+        g.lineTo(x + 6, h / 2);
+        g.lineTo(x, h - 8.5);
+        g.stroke();
+      }
+      return g.getImageData(0, 0, w, h);
+    }
+    const tramImageId = colour => `tram-${colour.replace("#", "")}`;
+
+    function fleetData() {
+      const now = nowSeconds();
+      return collection(fleet.trips.flatMap(trip => {
+        if (!isRunning(trip, now)) return [];
+        const e = tripClock(trip, now);
+        const { d } = distanceAt(trip, e);
+        const here = pointAlong(trip.pattern, d);
+        const ahead = pointAlong(trip.pattern, Math.min(d + 20, trip.pattern.cum.at(-1)));
+        const behind = pointAlong(trip.pattern, Math.max(d - 20, 0));
+        const kx = Math.cos(here[1] * Math.PI / 180);
+        const bearing = Math.atan2((ahead[0] - behind[0]) * kx, ahead[1] - behind[1]) * 180 / Math.PI;
+        return [point(here, { key: trip.key, image: tramImageId(META.lines[trip.line][5] || "#555555"),
+          rotate: bearing - 90, followed: trip.key === following })];
+      }));
+    }
+
+    function addFleetToMap() {
+      if (!fleetOn() || map.getSource("fleet-src")) return;
+      for (const [, , , mode, , colour] of META.lines) {
+        if (mode === "tram" && colour && !map.hasImage(tramImageId(colour))) {
+          map.addImage(tramImageId(colour), tramImage(colour), { pixelRatio: 2 });
+        }
+      }
+      map.addSource("fleet-src", { type: "geojson", data: fleetData() });
+      map.addLayer({ id: "fleet-icon", type: "symbol", source: "fleet-src",
+        layout: {
+          visibility: diagram.stop ? "none" : "visible",
+          "icon-image": ["get", "image"], "icon-rotate": ["get", "rotate"],
+          "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 9, ["case", ["get", "followed"], 0.95, 0.7],
+            13, ["case", ["get", "followed"], 1.35, 1], 17, ["case", ["get", "followed"], 1.8, 1.4]]
+        } }, firstLayer("veh-dot"));
+    }
+
+    function drawFleet() {
+      const source = map.getSource("fleet-src");
+      if (source) source.setData(fleetData());
+      else addFleetToMap();
+    }
+
+    async function startFleet() {
+      if (fleet.timer || !fleetOn()) return;
+      const token = ++fleet.token;
+      const refresh = async () => {
+        try {
+          const trips = await runningTrams();
+          if (fleet.token === token) fleet.trips = trips;
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      fleet.timer = setInterval(refresh, 60_000);
+      await refresh();
+      if (fleet.token === token) drawFleet();
+    }
+
+    function stopFleet() {
+      fleet.token++;
+      clearInterval(fleet.timer);
+      fleet.timer = null;
+      fleet.trips = [];
+      removeLayers("fleet-");
+    }
+
+    map.on("click", "fleet-icon", e => {
+      const trip = fleet.trips.find(t => t.key === e.features[0].properties.key);
+      if (trip) openTrip(trip);
+    });
+    map.on("mouseenter", "fleet-icon", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "fleet-icon", () => { map.getCanvas().style.cursor = ""; });
+
+
+    // ---- Smooth movement -------------------------------------------------------------------
+    // One animation loop moves every bus and tram, and the camera when following, about 30 times
+    // a second, so they glide instead of ticking. The bus card's text only needs updating twice
+    // a second. The browser pauses the loop while the tab is hidden.
+    let lastFrame = 0;
+    let lastCard = 0;
+    function animate(time) {
+      requestAnimationFrame(animate);
+      if (time - lastFrame < 33) return;
+      lastFrame = time;
+      if (!map.getSource("veh-src") && (tracked.stop || following)) addVehiclesToMap();
+      map.getSource("veh-src")?.setData(vehicleData());
+      map.getSource("fleet-src")?.setData(fleetData());
+      followFrame();
+      if (time - lastCard > 500) {
+        lastCard = time;
+        updateVehicleCard();
+      }
+    }
+    requestAnimationFrame(animate);
+
     // Stops and trams hide while a stand diagram is open: they'd show through its wash.
     function syncOverlayVisibility() {
       const set = (ids, on) => ids.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
       set(["stops-dot", "stops-label"], stopsToggle.checked && !diagram.stop);
-      set(["tram-casing", "tram-lines", "tram-stations", "tram-labels"], tramToggle.checked && !diagram.stop);
+      set(["tram-casing", "tram-lines", "tram-stations", "tram-labels", "fleet-icon"], tramToggle.checked && !diagram.stop);
     }
 
     // A style switch wipes custom layers; redraw everything in the new theme, bottom to top.
@@ -1678,6 +2632,8 @@
       addStopsToMap();
       addDiagramToMap();
       addRouteToMap();
+      addFleetToMap();
+      addVehiclesToMap();
     });
     map.once("load", () => {
       syncStops();

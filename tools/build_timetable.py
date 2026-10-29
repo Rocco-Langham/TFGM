@@ -172,6 +172,7 @@ def main():
     ix_deps = defaultdict(set)
     stop_deps = defaultdict(lambda: defaultdict(list))  # stop_id -> (line, headsign, service) -> [(minute, variant, pos)]
     tram_stop_ids = set()
+    tram_trips = set()
 
     def finish_trip(trip_id, rows):
         # rows: (stop_id, departure secs, shape distance or None, pickup_type, stop_headsign)
@@ -185,12 +186,13 @@ def main():
                                                  "dirs": Counter(), "heads": Counter()})
         info["trips"] += 1
         info["dirs"][trip["direction_id"]] += 1
-        info["heads"][trip["trip_headsign"]] += 1
+        info["heads"][clean(trip["trip_headsign"])] += 1
         offsets = tuple(round((r[1] - rows[0][1]) / 60) for r in rows)
         v = variants[line].setdefault((p, offsets), len(variants[line]))
+        svc = services(trip["service_id"])
         if route_id in tram_routes:
             tram_stop_ids.update(r[0] for r in rows)
-        svc = services(trip["service_id"])
+            tram_trips.add((line, v, rows[0][1], svc))  # every tram, to draw the whole network moving
         for pos, (sid, secs, _dist, pickup, stop_headsign) in enumerate(rows[:-1]):  # nobody boards at the end
             if pickup == "1":
                 continue
@@ -379,14 +381,16 @@ def main():
             stations[s["name"]].append(i)
     network = []
     for name, paths in sorted(tram_paths.items()):
-        busiest = max(t for t, _ in paths)
-        network.append({"name": name, "colour": TRAM_COLOURS.get(name, "#555555"),
-                        "paths": [p for t, p in paths if t >= busiest * 0.1]})  # skip rare short workings
+        # Every pattern, even rare short workings: a tram must never appear off the drawn track.
+        unique = {json.dumps(p): p for _, p in paths}  # many patterns run along identical track
+        network.append({"name": name, "colour": TRAM_COLOURS.get(name, "#555555"), "paths": list(unique.values())})
     write_js(out / "metrolink.js", "window.GM_METROLINK", {
         "stations": [[name, round(sum(stops[i]["pos"][0] for i in idx) / len(idx), 5),
                       round(sum(stops[i]["pos"][1] for i in idx) / len(idx), 5), idx]
                      for name, idx in sorted(stations.items())],
         "network": network,
+        # [line, journey variant, start (seconds after service-day midnight), service]
+        "trips": sorted(list(t) for t in tram_trips),
     })
 
     # ---- Summary --------------------------------------------------------------------------

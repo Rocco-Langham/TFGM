@@ -19,6 +19,18 @@ bash tools/refresh_data.sh
 
 Then open `index.html` in a browser. It works straight from disk; no server is needed.
 
+## Live buses (optional)
+
+Without live data, buses and trams are drawn where the timetable puts them. To see real bus
+positions, and whether each bus is early or late:
+
+1. Register for a free key at the [Bus Open Data Service](https://data.bus-data.dft.gov.uk/).
+2. Save it in a file called `.bods_key` in this folder (it's git-ignored).
+3. Run `python3 tools/live_server.py` and open <http://localhost:8000>.
+
+The server keeps the key to itself and passes positions to the page. BODS has no tram positions,
+so trams always follow the timetable.
+
 ## Keeping the timetable current
 
 TfGM's timetable only runs a few weeks ahead. To rebuild it every Monday at 06:00 automatically:

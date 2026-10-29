@@ -9,3 +9,4 @@ data/lines/
 
 __pycache__/
 .DS_Store
+.bods_key
