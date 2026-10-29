@@ -26,6 +26,7 @@
       --active-bg: #1f2933;
       --active-fg: #ffffff;
       --shadow: 0 6px 24px rgba(15, 23, 42, 0.12);
+      --panel-solid: #ffffff;  /* for lists over other controls, where blur can't reach */
     }
     body[data-theme="dark"],
     body[data-theme="satellite"] {
@@ -36,6 +37,7 @@
       --active-bg: #eef1f5;
       --active-fg: #161a20;
       --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+      --panel-solid: #161a20;
     }
 
     html, body { margin: 0; height: 100%; }
@@ -60,14 +62,12 @@
       transition: background 0.3s ease, color 0.3s ease;
     }
 
-    /* Left: a slim rail of layer switches, and beside it the details panel, which can use the
-       full height of the window */
-    :root { --rail-w: 78px; }
+    /* Left: details of whatever's been clicked, using the full height of the window */
     .sidebar {
       position: absolute;
       z-index: 2;
       top: 16px;
-      left: calc(16px + var(--rail-w) + 12px);
+      left: 16px;
       bottom: 16px;
       display: flex;
       flex-direction: column;
@@ -77,7 +77,8 @@
     }
     .sidebar > .panel { position: relative; pointer-events: auto; }
 
-    /* Top right: search, then the map style switch, then MapLibre's zoom buttons */
+    /* Top right: search, then the layer switches, then the map style switch, then MapLibre's
+       zoom buttons (placed under the stack by placeZoomButtons()) */
     .top-right {
       position: absolute;
       z-index: 3;
@@ -86,11 +87,12 @@
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 10px;
+      gap: 8px;
       pointer-events: none;
     }
     .top-right > .panel { position: relative; pointer-events: auto; }
-    .search-panel { padding: 5px; border-radius: 14px; }
+    .search-panel { padding: 4px; border-radius: 14px; }
+    .top-right > .search-panel { z-index: 3; }  /* its results drop down over the controls below */
     .modes {
       display: flex;
       gap: 4px;
@@ -103,7 +105,7 @@
       background: transparent;
       border: 0;
       border-radius: 999px;
-      padding: 10px 16px;
+      padding: 8px 14px;
       cursor: pointer;
       transition: background 0.2s ease, color 0.2s ease;
     }
@@ -134,11 +136,12 @@
     }
     body[data-theme="dark"] .maplibregl-ctrl-icon,
     body[data-theme="satellite"] .maplibregl-ctrl-icon { filter: invert(1); }
-    .maplibregl-ctrl-top-right { top: 122px; }
+    .maplibregl-ctrl-top-right { top: var(--controls-top, 210px); }
+    .maplibregl-ctrl-top-right .maplibregl-ctrl { margin: 10px 16px 0 0; }
     .maplibregl-ctrl-attrib, .maplibregl-ctrl-scale { font-family: var(--font); }
 
     /* Search */
-    .search { position: relative; width: 300px; }
+    .search { position: relative; width: 316px; }
     .search input {
       box-sizing: border-box;
       width: 100%;
@@ -149,7 +152,7 @@
         no-repeat 11px center;
       border: 1px solid var(--panel-border);
       border-radius: 10px;
-      padding: 10px 12px 10px 34px;
+      padding: 8px 12px 8px 34px;
       appearance: none;
       -webkit-appearance: none;
     }
@@ -167,7 +170,7 @@
       margin: 0;
       padding: 6px;
       list-style: none;
-      background: var(--panel-bg);
+      background: var(--panel-solid);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--panel-border);
@@ -198,33 +201,30 @@
     .search-text { font-size: 14px; font-weight: 600; line-height: 1.25; }
     .search-text small { display: block; font-size: 12px; font-weight: 400; color: var(--panel-muted); }
 
-    /* Layer switches: a vertical rail on the left. Each is a checkbox drawn as an icon button;
-       a layer that's switched off is greyed out. */
+    /* Layer switches: a row of chips under the search box. Each is a checkbox drawn as an
+       icon and label; a layer that's switched off is greyed out. */
     .rail {
-      top: 16px;
-      left: 16px;
-      width: var(--rail-w);
-      box-sizing: border-box;
+      align-self: stretch;
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 6px;
-      border-radius: 18px;
+      gap: 2px;
+      padding: 4px;
+      border-radius: 999px;
     }
     .rail-toggle {
       position: relative;
+      flex: 1 1 auto;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 5px;
-      padding: 8px 2px 7px;
-      border-radius: 12px;
+      justify-content: center;
+      gap: 6px;
+      padding: 4px 9px 4px 4px;
+      border-radius: 999px;
       cursor: pointer;
       user-select: none;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
-      line-height: 1.15;
-      text-align: center;
+      line-height: 1;
+      white-space: nowrap;
       color: var(--panel-fg);
     }
     .rail-toggle:hover { background: var(--panel-border); }
@@ -239,20 +239,21 @@
     .rail-icon {
       display: grid;
       place-items: center;
-      width: 36px;
-      height: 36px;
+      flex: none;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       box-sizing: border-box;
       background: var(--panel-border);
       transition: opacity 0.2s ease, filter 0.2s ease;
     }
-    .rail-icon svg { width: 20px; height: 20px; }
+    .rail-icon svg { width: 16px; height: 16px; }
     .rail-icon-ix { background: var(--bus); border: 2px solid #1f2933; }
-    .rail-icon-ix svg { width: 18px; height: 18px; }
+    .rail-icon-ix svg { width: 14px; height: 14px; }
     .rail-icon-stop::before {
       content: "";
-      width: 16px;
-      height: 16px;
+      width: 13px;
+      height: 13px;
       border-radius: 50%;
       background: #ffffff;
       border: 3px solid #2563eb;
@@ -263,9 +264,9 @@
     .rail-toggle input:not(:checked) ~ .rail-icon,
     .rail-toggle input:not(:checked) ~ .rail-label { opacity: 0.38; filter: grayscale(1); }
     .rail-toggle input:focus-visible ~ .rail-icon { outline: 2px solid #3b82f6; outline-offset: 2px; }
-    .rail-hint {
+    .rail-hint {  /* pops out to the left of the row */
       position: absolute;
-      left: calc(100% + 14px);
+      right: calc(100% + 12px);
       top: 50%;
       transform: translateY(-50%);
       white-space: nowrap;
@@ -389,7 +390,7 @@
     /* Interchange stand diagram panel */
     .ix-panel {
       width: 380px;
-      max-width: calc(100vw - var(--rail-w) - 44px);
+      max-width: calc(100vw - 32px);
       min-height: 0;
       flex: 0 1 auto;
       overflow-y: auto;
@@ -492,8 +493,23 @@
     }
     body[data-theme="dark"] .ix-back, body[data-theme="satellite"] .ix-back { color: #7aa7ff; }
     .ix-back:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .ix-head .ix-back { margin-top: 5px; text-align: left; }
+    .ix-back[hidden], #ix-title[hidden], .ix-head .ix-hint[hidden] { display: none; }
     .route-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
     .route-head .dep-route { font-size: 15px; padding: 6px 8px; }
+    .follow-vehicle { cursor: pointer; }
+    .follow-vehicle canvas { display: block; width: 100%; height: 100%; }
+    .follow-vehicle span {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding-right: 6%;  /* centred on the body, not the windscreen */
+      font: 700 11px/1 var(--font);
+      color: #1f2933;
+      pointer-events: none;
+    }
+    .route-operator { margin: 3px 0 0; font-size: 12px; font-weight: 600; color: var(--panel-muted); }
     .route-dest { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; }
     .route-stops { list-style: none; margin: 0; padding: 0; }
     .route-stops li { cursor: pointer; border-radius: 8px; }
@@ -549,16 +565,13 @@
     .route-name small { display: block; font-size: 12px; color: var(--panel-muted); }
     .route-stops li.is-end .route-name { font-weight: 700; }
 
-    @media (max-width: 560px) {
-      :root { --rail-w: 56px; }
+    @media (max-width: 720px) {
       .top-right { top: 12px; left: 12px; right: 12px; align-items: stretch; }
       .search { width: auto; }
       .search-results { right: -5px; left: -5px; width: auto; max-width: none; }
       .top-right > .modes { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); }
-      .rail { top: 76px; left: 12px; padding: 4px; }
-      .rail-toggle { padding: 6px 2px; }
-      .rail-label { display: none; }
-      .rail-icon { width: 34px; height: 34px; }
+      .maplibregl-ctrl-top-right .maplibregl-ctrl { margin: 10px 12px 0 0; }
+      .rail-hint { right: auto; top: calc(100% + 10px); left: 50%; transform: translateX(-50%); }
       .sidebar > .ix-panel {
         position: fixed;
         left: 0;
@@ -570,46 +583,18 @@
         border-radius: 16px 16px 0 0;
       }
       body.ix-open .modes { display: none; }
-      .maplibregl-ctrl-top-right { top: 66px; }
     }
   </style>
 </head>
 <body data-theme="light">
   <div id="map"></div>
 
-  <!-- Left: layer switches -->
-  <nav class="panel rail" aria-label="Map layers">
-    <label class="rail-toggle" title="Bus interchanges">
-      <input type="checkbox" id="toggle-interchanges" checked />
-      <span class="rail-icon rail-icon-ix" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="#1f2933"><path d="M6 2h12a3 3 0 0 1 3 3v12a2 2 0 0 1-1 1.73V20a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H7v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1.27A2 2 0 0 1 3 17V5a3 3 0 0 1 3-3Zm0 3v6h12V5H6Zm1.5 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
-      </span>
-      <span class="rail-label">Interchanges</span>
-    </label>
-    <label class="rail-toggle" title="Bus stops">
-      <input type="checkbox" id="toggle-stops" checked />
-      <span class="rail-icon rail-icon-stop" aria-hidden="true"></span>
-      <span class="rail-label">Bus stops</span>
-      <span class="rail-hint" id="stops-hint" hidden>Zoom in to see bus stops</span>
-    </label>
-    <label class="rail-toggle" title="Metrolink">
-      <input type="checkbox" id="toggle-trams" checked />
-      <span class="rail-icon rail-icon-tram" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 2h6M12 2v3"/><rect x="5" y="5" width="14" height="13" rx="3" fill="currentColor"/>
-          <rect x="7.5" y="7.5" width="9" height="4.5" rx="1" fill="#fff" stroke="none"/>
-          <path d="M8 21l2-3M16 21l-2-3"/>
-        </svg>
-      </span>
-      <span class="rail-label">Metrolink</span>
-    </label>
-  </nav>
-
-  <!-- Beside the rail: details of whatever's been clicked -->
+  <!-- Left: details of whatever's been clicked -->
   <div class="sidebar">
   <aside class="panel ix-panel" id="ix-panel" aria-labelledby="ix-title" hidden>
     <div class="ix-head">
       <div>
+        <button type="button" class="ix-back" id="ix-back" hidden></button>
         <h2 id="ix-title"></h2>
         <p class="ix-hint">Tap a stand for its buses, or a bus for its route</p>
       </div>
@@ -619,7 +604,7 @@
   </aside>
   </div>
 
-  <!-- Top right: search, then map style -->
+  <!-- Top right: search, then layer switches, then map style -->
   <div class="top-right">
     <div class="panel search-panel">
       <div class="search">
@@ -629,6 +614,32 @@
         <ul id="search-results" class="search-results" role="listbox" aria-label="Search results" hidden></ul>
       </div>
     </div>
+    <nav class="panel rail" aria-label="Map layers">
+      <label class="rail-toggle" title="Bus interchanges">
+        <input type="checkbox" id="toggle-interchanges" checked />
+        <span class="rail-icon rail-icon-ix" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="#1f2933"><path d="M6 2h12a3 3 0 0 1 3 3v12a2 2 0 0 1-1 1.73V20a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H7v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1.27A2 2 0 0 1 3 17V5a3 3 0 0 1 3-3Zm0 3v6h12V5H6Zm1.5 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
+        </span>
+        <span class="rail-label">Interchanges</span>
+      </label>
+      <label class="rail-toggle" title="Bus stops">
+        <input type="checkbox" id="toggle-stops" checked />
+        <span class="rail-icon rail-icon-stop" aria-hidden="true"></span>
+        <span class="rail-label">Bus stops</span>
+      </label>
+      <label class="rail-toggle" title="Metrolink">
+        <input type="checkbox" id="toggle-trams" checked />
+        <span class="rail-icon rail-icon-tram" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 2h6M12 2v3"/><rect x="5" y="5" width="14" height="13" rx="3" fill="currentColor"/>
+            <rect x="7.5" y="7.5" width="9" height="4.5" rx="1" fill="#fff" stroke="none"/>
+            <path d="M8 21l2-3M16 21l-2-3"/>
+          </svg>
+        </span>
+        <span class="rail-label">Metrolink</span>
+      </label>
+      <span class="rail-hint" id="stops-hint" hidden>Zoom in to see bus stops</span>
+    </nav>
     <div class="panel modes" role="group" aria-label="Map style">
       <button type="button" data-mode="light">Light</button>
       <button type="button" data-mode="dark">Dark</button>
@@ -639,7 +650,7 @@
   <script>
     // Approximate extent of Greater Manchester
     const GM_BOUNDS = [[-2.73, 53.33], [-1.91, 53.69]];
-    const MAX_BOUNDS = [[-3.4, 53.0], [-1.2, 54.0]];
+    const MAX_BOUNDS = [[-3.4, 52.6], [-1.2, 54.0]];  // room south for routes to Buxton, Macclesfield etc.
 
     const OFM = "https://tiles.openfreemap.org";
     const LABEL_FONT = ["Noto Sans Regular"];
@@ -764,6 +775,16 @@
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    // Keep the zoom buttons just under the search / style / layer stack, whatever its height.
+    const topRight = document.querySelector(".top-right");
+    const placeZoomButtons = () => document.documentElement.style.setProperty(
+      "--controls-top", `${topRight.getBoundingClientRect().bottom}px`);
+    new ResizeObserver(placeZoomButtons).observe(topRight);
+    addEventListener("resize", placeZoomButtons);
+
+    // Below this width the page uses its compact layout (search across the top, details as a
+    // sheet along the bottom), matching the CSS breakpoint.
+    const compact = () => matchMedia("(max-width: 720px)").matches;
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
     // The stock dark style uses tiny, dim, ALL-CAPS labels. Bring them in line with
@@ -780,6 +801,36 @@
       highway_name_motorway:{ size: 11, color: "#8b949e" }
     };
 
+    // Light and dark draw roads as thin lines, but a bus runs in its lane, a few metres from the
+    // centre line, so it looked to be beside the road. From zoom 14 in, draw roads at their real
+    // width instead, as the satellite view shows them.
+    const METRES_PER_PX_AT_Z0 = 46618;  // here, at 53.45° N
+    const ROAD_WIDTH_M = { motorway: 22, trunk: 14, primary: 13, secondary: 11, tertiary: 9, minor: 7, service: 4.5, track: 3 };
+    const roadPx = (metres, z) => metres * 2 ** z / METRES_PER_PX_AT_Z0;
+    function roadWidth(lowStops, casing = false) {
+      const at = z => ["match", ["get", "class"],
+        ...Object.entries(ROAD_WIDTH_M).flatMap(([c, m]) => [c, roadPx(m, z) + (casing ? Math.max(1.5, roadPx(0.8, z)) : 0)]),
+        roadPx(ROAD_WIDTH_M.minor, z) + (casing ? 1.5 : 0)];
+      return ["interpolate", ["exponential", 2], ["zoom"], ...lowStops.flat(), 14, at(14), 20, at(20)];
+    }
+    const REAL_WIDTH_ROADS = {
+      highway_minor: roadWidth([[13, 1.8]]),
+      highway_major_inner: roadWidth([[10, 2]]),
+      highway_major_casing: roadWidth([[10, 3]], true),
+      highway_motorway_inner: roadWidth([[6, 1.3], [12, 3]]),
+      highway_motorway_casing: roadWidth([[6, 3], [12, 4.5]], true),
+      tunnel_motorway_inner: roadWidth([[6, 1.3], [12, 3]]),
+      tunnel_motorway_casing: roadWidth([[6, 3], [12, 4.5]], true),
+      highway_motorway_bridge_inner: roadWidth([[6, 1.3], [12, 3]]),
+      highway_motorway_bridge_casing: roadWidth([[6, 5], [12, 6.5]], true)
+    };
+    map.on("style.load", () => {
+      if (document.body.dataset.theme === "satellite") return;
+      for (const [id, width] of Object.entries(REAL_WIDTH_ROADS)) {
+        if (map.getLayer(id)) map.setPaintProperty(id, "line-width", width);
+      }
+    });
+
     map.on("style.load", () => {
       if (document.body.dataset.theme !== "dark") return;
       for (const [id, s] of Object.entries(DARK_LABELS)) {
@@ -795,6 +846,7 @@
     });
 
     const buttons = document.querySelectorAll(".modes button");
+    let styleLoading = false;  // between setStyle() and "style.load", sources can't be added
 
     function setMode(mode) {
       document.body.dataset.theme = mode;
@@ -808,6 +860,7 @@
         const mode = btn.dataset.mode;
         if (mode === document.body.dataset.theme) return;
         setMode(mode);
+        styleLoading = true;
         map.setStyle(STYLES[mode], { diff: false });
       });
     });
@@ -833,8 +886,8 @@
       timeZone: "Europe/London", hourCycle: "h23",
       year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric"
     });
-    function londonNow() {
-      const p = Object.fromEntries(londonClock.formatToParts(new Date()).map(x => [x.type, Number(x.value)]));
+    function londonNow(date = new Date()) {
+      const p = Object.fromEntries(londonClock.formatToParts(date).map(x => [x.type, Number(x.value)]));
       return { y: p.year, m: p.month, d: p.day, secs: p.hour * 3600 + p.minute * 60 + p.second };
     }
 
@@ -896,10 +949,22 @@
       const box = el.getBoundingClientRect();
       const view = map.getContainer().getBoundingClientRect();
       const pad = 16;
-      const bottomPad = matchMedia("(max-width: 560px)").matches ? 110 : 40; // mobile style switch
+      const bottomPad = compact() ? 110 : 40; // the style switch along the bottom
       const shift = (lo, hi, min, max) => lo < min ? lo - min : hi > max ? Math.min(hi - max, lo - min) : 0;
-      const dx = shift(box.left, box.right, view.left + pad, view.right - pad);
-      const dy = shift(box.top, box.bottom, view.top + pad, view.bottom - bottomPad);
+      let dx = shift(box.left, box.right, view.left + pad, view.right - pad);
+      let dy = shift(box.top, box.bottom, view.top + pad, view.bottom - bottomPad);
+      // Keep clear of the controls at the top right: move the card below them, or to their
+      // left if that's the smaller move and it still fits.
+      const stack = topRight.getBoundingClientRect();
+      const zoom = document.querySelector(".maplibregl-ctrl-top-right").getBoundingClientRect();
+      const block = { left: Math.min(stack.left, zoom.left || stack.left) - 8, bottom: Math.max(stack.bottom, zoom.bottom) + 8 };
+      const left = box.left - dx, right = box.right - dx, top = box.top - dy, bottom = box.bottom - dy;
+      if (right > block.left && top < block.bottom) {
+        const down = block.bottom - top, across = right - block.left;
+        const downFits = bottom + down <= view.bottom - bottomPad, acrossFits = left - across >= view.left + pad;
+        if (acrossFits && (!downFits || across < down)) dx += across;
+        else dy -= down;
+      }
       if (dx || dy) map.panBy([dx, dy], { duration: 300 });
     }
 
@@ -943,7 +1008,7 @@
         if (!row || (e.type === "keydown" && e.key !== "Enter")) return;
         const dep = deps[Number(row.dataset.i)];
         popup.remove();
-        showJourney(dep, stop.name);
+        showJourney(dep, stop.name, stop);
       };
       render();
       popup.getElement().addEventListener("click", open);
@@ -956,6 +1021,9 @@
         if (keepVehiclesOnClose) tracked.onChange = null;  // keep the buses, but not this popup's updates
         else untrackStation();
       });
+      // A journey opened from here can come back to this popup.
+      stop.reopen = () => departuresPopup(trackPopup(new maplibregl.Popup({ offset: 12, maxWidth: "340px" })
+        .setLngLat(stop.lngLat).addTo(map)), stop);
       trackStation(stop, render);
     }
 
@@ -1172,7 +1240,7 @@
       });
       map.addSource("ix-buses", { type: "geojson", data: busData() });
       map.addSource("ix-stands", { type: "geojson", data: standData() });
-      const before = firstLayer("rt-casing", "veh-dot");  // a route or moving buses stay on top
+      const before = firstLayer("rt-casing", "fleet-icon", "veh-dot");  // a route, trams and moving buses stay on top
       for (const layer of diagramLayers(layout)) map.addLayer(layer, before);
     }
 
@@ -1191,15 +1259,18 @@
     const ixTitle = document.getElementById("ix-title");
     const ixHint = document.querySelector("#ix-panel .ix-hint");
 
-    // The part of the map not covered by the layer rail, the details panel or the top-right
-    // controls, for framing things and centring a followed bus.
+    // The part of the map not covered by the details panel or the controls (search, style
+    // switch and layer switches across the top right, zoom buttons under them), for framing
+    // things and centring a followed bus.
     function panelPadding() {
-      const railRight = document.querySelector(".rail").getBoundingClientRect().right;
-      if (matchMedia("(max-width: 560px)").matches) {
-        return { top: 80, left: railRight + 12, right: 56, bottom: (ixPanel.hidden ? 60 : innerHeight * 0.48) + 30 };
+      const top = topRight.getBoundingClientRect().bottom + 16;
+      const zoom = document.querySelector(".maplibregl-ctrl-top-right").getBoundingClientRect();
+      const right = (zoom.width ? innerWidth - zoom.left : 0) + 16;
+      if (compact()) {
+        return { top, left: 24, right, bottom: (ixPanel.hidden ? 60 : innerHeight * 0.48) + 30 };
       }
       const panelRight = ixPanel.hidden ? 0 : ixPanel.getBoundingClientRect().right;
-      return { top: 60, left: Math.max(railRight, panelRight) + 40, right: 80, bottom: 50 };
+      return { top, left: panelRight + 40, right: right + 8, bottom: 50 };
     }
 
     function fitPoints(points, options) {
@@ -1209,10 +1280,13 @@
     }
 
     function frameDiagram() {
-      // Phones can't fit outlying kerbside stands at a readable size, so frame the main bays.
+      // Phones and narrow windows can't fit outlying kerbside stands at a readable size, so
+      // frame the main bays.
       const { layout } = diagram;
       const bayStands = layout.stands.filter(st => st.kind === "bay");
-      const framed = matchMedia("(max-width: 560px)").matches && bayStands.length ? bayStands : layout.stands;
+      const pad = panelPadding();
+      const narrow = compact() || innerWidth - pad.left - pad.right < 350;
+      const framed = narrow && bayStands.length ? bayStands : layout.stands;
       fitPoints(framed.map(st => toLngLat(layout, [st.x, st.y])), { maxZoom: 19.5 });
     }
 
@@ -1238,9 +1312,17 @@
     }
 
     // The side panel shows a route if one is open, otherwise the stand diagram's departures.
+    const ixBack = document.getElementById("ix-back");
+    ixBack.addEventListener("click", () => hideRoute({ back: true }));
+
     function renderPanel() {
       ixPanel.hidden = !(diagram.stop || route);
       document.body.classList.toggle("ix-open", !ixPanel.hidden);
+      // A journey opened from a stop or interchange has "Back to …" in place of the title.
+      const from = route?.kind === "journey" ? (route.fromDiagram ? diagram.stop : route.backTo) : null;
+      ixBack.hidden = !from;
+      ixTitle.hidden = ixHint.hidden = !!from;
+      if (from) ixBack.textContent = `‹ Back to ${from.name}`;
       if (route) {
         renderRoutePanel();
       } else if (diagram.stop) {
@@ -1326,6 +1408,8 @@
     }
 
     async function openRoute(next) {
+      // A bus clicked on the map while a stop's popup is open goes back to that stop.
+      if (!diagram.stop && next.kind === "journey" && tracked.stop?.reopen) next.backTo ??= tracked.stop;
       keepVehiclesOnClose = true;  // the stop's buses stay on the map while its route is open
       closePopups();
       keepVehiclesOnClose = false;
@@ -1372,7 +1456,8 @@
       Object.assign(r, journeyFrom(r.data, variant, 0));
     }
 
-    const showJourney = (dep, stopName) => openRoute({ kind: "journey", line: dep.line, dep, stopName, fromDiagram: !!diagram.stop });
+    const showJourney = (dep, stopName, backTo) =>
+      openRoute({ kind: "journey", line: dep.line, dep, stopName, fromDiagram: !!diagram.stop, backTo });
     const showLine = line => {
       if (diagram.stop) closeDiagram({ restoreCamera: false });
       return openRoute({ kind: "line", line });
@@ -1383,7 +1468,12 @@
       if (!route?.path) return;
       if (diagram.stop) redrawDiagram();  // lightens the diagram's wash
       addRouteToMap();
-      fitPoints(route.path, { maxZoom: 16 });
+      // The first and last stops' labels run to the right of them: leave room for the longer.
+      const pad = panelPadding();
+      const ends = [route.stops?.[0], route.stops?.at(-1)].filter(Boolean)
+        .map(st => `${st.clock ?? ""}  ${st.name}`.length * 8.5 + 16);
+      const room = Math.min(Math.max(0, ...ends), innerWidth - pad.left - pad.right - 320);
+      fitPoints(route.path, { maxZoom: 16, padding: { ...pad, right: pad.right + Math.max(0, room) } });
     }
 
     function addRouteToMap() {
@@ -1437,8 +1527,11 @@
     }
 
     // Back out of a route: to the stand diagram it came from, or to where the map was.
-    function hideRoute() {
+    // Closes the open route. With { back: true } a journey opened from a stop's popup reopens
+    // that popup; from a stand diagram, the diagram comes back either way.
+    function hideRoute({ back = false } = {}) {
       if (!route) return;
+      const backTo = route.backTo;
       clearRoute();
       if (diagram.stop) {
         redrawDiagram();
@@ -1446,28 +1539,37 @@
       } else {
         if (routeCamera) map.flyTo({ ...routeCamera, duration: 1000 });
         untrackStation();  // the popup they came from has gone
+        if (back && backTo?.reopen) backTo.reopen();
       }
       routeCamera = null;
       renderPanel();
+    }
+
+    // Who runs a line: "Go North West for the Bee Network", or just "Arriva".
+    function operatorOf(line) {
+      const [, , brand, , , , company] = META.lines[line];
+      if (company && brand && company !== brand) return `${company} for the ${brand}`;
+      return company || brand || "";
     }
 
     function renderRoutePanel() {
       const { kind, dep, error, stops } = route;
       const lineName = META.lines[route.line][0];
       const pill = routePill(shortLineName(route.line), META.lines[route.line][5]);
-      const back = route.fromDiagram ? `<div class="ix-bar"><button type="button" class="ix-back">‹ Back to stands</button></div>` : "";
       let head;
       if (kind === "journey") {
         const last = stops?.at(-1);
         ixTitle.textContent = route.fromDiagram ? diagram.stop.name : route.clicked ? tracked.stop?.name ?? route.stopName : route.stopName;
         ixHint.textContent = isTramLine(route.line) ? "Tram journey" : "Bus journey";
-        head = `${back}
+        head = `
           <div class="route-head">${pill}
             <div>
               <p class="route-dest">${esc(dep.headsign)}</p>
               <p class="ix-hint" ${route.vehicle ? 'id="veh-next"' : ""}>${route.clicked ? `Next stop ${esc(route.stopName)}` : `Leaves ${
                 route.fromDiagram ? esc(dep.stand) : esc(route.stopName)}`} at ${dep.clock}${
-                last ? ` · ${last.mins} min to ${esc(last.name)}` : ""}</p>
+                last ? ` · ${last.mins} min to ${esc(last.name)}` : ""}</p>${
+                !isTramLine(route.line) && operatorOf(route.line) ? `
+              <p class="route-operator">Run by ${esc(operatorOf(route.line))}</p>` : ""}
             </div>
           </div>${route.vehicle ? `
           <div class="veh-bar">
@@ -1477,7 +1579,7 @@
           </div>` : ""}`;
       } else {
         ixTitle.textContent = isTramLine(route.line) ? lineName : `Route ${lineName}`;
-        ixHint.textContent = [META.lines[route.line][1], META.lines[route.line][2]].filter(Boolean).join(" · ");
+        ixHint.textContent = [META.lines[route.line][1], operatorOf(route.line)].filter(Boolean).join(" · ");
         const dirs = route.directions ?? [];
         head = dirs.length > 1 ? `<div class="route-dirs" role="group" aria-label="Direction">${dirs.map((p, d) =>
           `<button type="button" data-dir="${d}" aria-pressed="${d === route.direction}">To ${esc(route.data.patterns[p].to)}</button>`
@@ -1515,7 +1617,7 @@
     function onPanelActivate(e) {
       if (e.type === "keydown" && e.key !== "Enter") return;
       if (e.target.closest(".ix-all")) return selectStand(null);
-      if (e.target.closest(".ix-back")) return hideRoute();
+      if (e.target.closest(".ix-back")) return hideRoute({ back: true });
       if (e.target.closest(".veh-show")) return showAllVehicles();
       if (e.target.closest(".veh-follow")) return following === route?.vehicle ? stopFollowing() : startFollowing(route.vehicle);
       const dirButton = e.target.closest("[data-dir]");
@@ -1626,11 +1728,13 @@
         if (track.length < 2) return 0;
         const [, , lng, lat] = stops[pattern.stops[k]];
         const guess = dRaw * scale;
+        // On a loop the track can pass a stop twice; prefer the pass nearest the guess.
+        const score = hit => hit.off + 0.05 * Math.abs(hit.d - guess);
         let best = null;
         const last = segmentAt(cum, guess + 150);
         for (let i = segmentAt(cum, Math.max(prev, guess - 150)); i <= last; i++) {
           const hit = projectOnSegment(track, cum, lng, lat, i);
-          if (!best || hit.off < best.off) best = hit;
+          if (!best || score(hit) < score(best)) best = hit;
         }
         prev = Math.max(prev, best ? best.d : guess);
         return prev;
@@ -1657,7 +1761,7 @@
     const BUS_CORNER_CUT_M = 12, TRAM_CORNER_CUT_M = 25;  // corner rounding, matching the drawn lines
     const CORNER_SPEED = { bus: 0.35, tram: 0.45 };
     const PROFILE_STEP_M = 5;    // resolution of the speed profile
-    const TURN_WINDOW_M = 12;    // a turn is the change of direction over this far either side
+    const TURN_WINDOW_M = { bus: 12, tram: 40 };  // a turn is the change of direction over this far either side
     const BRAKE_M = 15;          // slowing down and speeding up spread over this distance
 
     function cornerProfile(pattern, mode) {
@@ -1677,13 +1781,15 @@
       }
       const headingAt = d => heading[Math.min(heading.length - 1, segmentAt(cum, d))];
       const slowest = CORNER_SPEED[mode] ?? CORNER_SPEED.bus;
+      const win = TURN_WINDOW_M[mode] ?? TURN_WINDOW_M.bus;
       const speed = new Float64Array(n);
       for (let i = 0; i < n; i++) {
         const d = i * step;
-        let turn = Math.abs(headingAt(Math.min(total, d + TURN_WINDOW_M)) - headingAt(Math.max(0, d - TURN_WINDOW_M))) % (2 * Math.PI);
+        let turn = Math.abs(headingAt(Math.min(total, d + win)) - headingAt(Math.max(0, d - win))) % (2 * Math.PI);
         if (turn > Math.PI) turn = 2 * Math.PI - turn;
         speed[i] = 1 - (1 - slowest) * Math.min(1, turn / (Math.PI / 2));
       }
+      if (mode === "bus") pattern.junctions = junctionsAlong(speed, step, 1 - (1 - slowest) * JUNCTION_TURN / (Math.PI / 2));
       // Brake before a bend and pick up after it: take the slowest speed nearby, then smooth that.
       const r = Math.max(1, Math.round(BRAKE_M / step));
       const near = new Float64Array(n), eased = new Float64Array(n);
@@ -1735,6 +1841,167 @@
       return c1 > c0 ? Math.max(0, Math.min(1, (costAt(pattern, d) - c0) / (c1 - c0))) : (d1 > d0 ? (d - d0) / (d1 - d0) : 0);
     }
 
+    // ---- Hold-ups at junctions -------------------------------------------------------------
+    // Until live positions come in, each bus is held up at random at some junctions: stopping
+    // (lights, giving way) or slowing (traffic), as a dip in its speed centred on the junction.
+    // A journey's draws come from its own key, so a bus does the same thing every time it's
+    // drawn. Times at stops don't change: a bus that's held up runs a little quicker either side.
+    const JUNCTION_TURN = Math.PI / 6;   // a bend of 30° or more counts as a junction
+    const LIGHTS_EVERY_M = 450;          // long straights get a set of lights about this often
+    const STOP_CHANCE = 0.3, SLOW_CHANCE = 0.3;
+    const BRAKE_DISTANCE_M = 30;         // a stop brakes over this far, and pulls away over the same
+    const SLOW_DISTANCE_M = 30;          // a slow-down eases in and out over at least this far either side
+    const MAX_HOLD_SHARE = 0.35;         // never more than this share of a stop-to-stop run
+    const MAX_CATCH_UP_SPEED = 18;       // m/s: catching up mustn't need more than this
+
+    // Junctions along a track: the sharpest point of each bend (from the turn-based speeds,
+    // one every `step` metres), plus evenly spaced lights on long straights.
+    function junctionsAlong(speed, step, threshold) {
+      const bends = [];
+      for (let i = 1; i < speed.length - 1; i++) {
+        if (speed[i] > threshold || speed[i] > speed[i - 1] || speed[i] >= speed[i + 1]) continue;
+        if (!bends.length || i * step - bends.at(-1) > 40) bends.push(i * step);
+      }
+      const all = [];
+      let last = 0;
+      for (const d of [...bends, (speed.length - 1) * step]) {
+        const lights = Math.round((d - last) / LIGHTS_EVERY_M) - 1;
+        for (let k = 1; k <= lights; k++) all.push(last + (d - last) * k / (lights + 1));
+        all.push(d);
+        last = d;
+      }
+      all.pop();  // the end of the track
+      return all;
+    }
+
+    // Random numbers from a seed string (mulberry32).
+    function seededRandom(text) {
+      let a = 2166136261;
+      for (let i = 0; i < text.length; i++) a = Math.imul(a ^ text.charCodeAt(i), 16777619);
+      return () => {
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // A trip's hold-ups, as extra "cost" (see cornerProfile) around a junction at x in
+    // stop-to-stop run j, sized so they take the drawn number of seconds out of the run.
+    //   stop: brakes at a steady rate to a standstill over b metres, waits (cost q), then pulls
+    //         away the same way. Steady braking means speed ∝ √(distance to go), which is extra
+    //         cost density 1/√s − 1 over the last b metres: b in all, and the same again after.
+    //   slow: a smooth dip in speed over ±w metres, extra density a·(1 + cos πs)/2, a·w in all.
+    // Every bus stops at every stop: it brakes steadily to a standstill over up to STOP_BRAKE_M,
+    // waits, and pulls away the same way. The wait comes at the end of each stop-to-stop run, so
+    // the bus is at the stop until its timetabled time and leaves on time.
+    const STOP_BRAKE_M = 30, MIN_STOP_BRAKE_M = 5, DWELL_SECS = [4, 12];
+
+    function tripHolds(trip) {
+      if (trip.holds) return trip.holds;
+      const P = trip.pattern, T = stopTimes(trip), D = P.stopDist;
+      const key = trip.key ?? `${trip.line}|${trip.variant}|${trip.start}`;
+      const rand = seededRandom(key), dwellRand = seededRandom(`${key}|stops`);
+      const runs = new Map();
+      let j = 0;
+      for (const x of P.junctions ?? []) {
+        while (j + 1 < D.length && D[j + 1] <= x) j++;
+        if (j + 1 >= D.length) break;
+        const kind = rand(), size = rand();  // always two draws, so each junction keeps its own
+        const room = Math.min(x - D[j], D[j + 1] - x) - 5;  // keep clear of the stops
+        if (room < 20 || kind >= STOP_CHANCE + SLOW_CHANCE) continue;
+        const stop = kind < STOP_CHANCE;
+        if (!runs.has(j)) runs.set(j, []);
+        runs.get(j).push({ x, room, stop, secs: stop ? 2 + 6 * size : 1 + 2 * size });
+      }
+      const holds = [];
+      trip.dwell = [];
+      for (let j = 0; j + 1 < D.length; j++) {
+        const wantDwell = DWELL_SECS[0] + (DWELL_SECS[1] - DWELL_SECS[0]) * dwellRand();  // always drawn
+        trip.dwell[j] = 0;
+        const dt = T[j + 1] - T[j], C = costAt(P, D[j + 1]) - costAt(P, D[j]), metres = D[j + 1] - D[j];
+        if (!(dt > 0 && C > 0 && metres > 2 * MIN_STOP_BRAKE_M)) continue;
+        // The run's moving time is shared out in proportion to cost, and cost counts straight
+        // metres as 1, so a run of cost C in m seconds has the bus doing C / m on its straights:
+        // MAX_CATCH_UP_SPEED limits that. Braking into the next stop and pulling away from this
+        // one add b of cost each; the wait at the end takes time away from moving.
+        const b = Math.min(STOP_BRAKE_M, metres / 3, (MAX_CATCH_UP_SPEED * dt - C) / 2);
+        if (b < MIN_STOP_BRAKE_M) continue;  // the timetable leaves no time to stop properly
+        const dwell = Math.min(wantDwell, MAX_HOLD_SHARE * dt, dt - (C + 2 * b) / MAX_CATCH_UP_SPEED);
+        trip.dwell[j] = Math.max(0, dwell);
+        holds.push({ j, x: D[j], stop: true, b, q: 0 }, { j, x: D[j + 1], stop: true, b, q: 0 });
+
+        // Hold-ups at junctions along the way, in what's left.
+        const parts = runs.get(j);
+        if (!parts) continue;
+        const moving = dt - trip.dwell[j], base = C + 2 * b;
+        const room = MAX_CATCH_UP_SPEED * moving - base;  // most extra cost the speed limit allows
+        if (room <= 0) continue;
+        for (const part of parts) if (part.stop) part.b = Math.min(BRAKE_DISTANCE_M, part.room);
+        // A bus with no time to spare doesn't stop: drop stops until braking fits.
+        while (parts.some(part => part.stop) &&
+               2 * parts.reduce((sum, part) => sum + (part.stop ? part.b : 0), 0) > room) {
+          parts.splice(parts.findLastIndex(part => part.stop), 1);
+        }
+        // With extra cost E the bus takes moving / (base + E) seconds per unit of cost, so
+        // waiting and slowing for W seconds, on top of braking and pulling away (2B), needs
+        // E = (2B·moving + W·base) / (moving − W).
+        const B = parts.reduce((sum, part) => sum + (part.stop ? part.b : 0), 0);
+        const extraFor = W => (2 * B * moving + W * base) / (moving - W);
+        const wanted = parts.reduce((sum, part) => sum + part.secs, 0);
+        let W = Math.min(wanted, MAX_HOLD_SHARE * moving);
+        while (W > 0.5 && extraFor(W) > room) W *= 0.8;
+        if (W <= 0.5) W = 0;
+        const perCost = moving / (base + extraFor(W));  // seconds per unit of cost, hold-ups included
+        const share = wanted ? W / wanted : 0;
+        for (const part of parts) {
+          const secs = part.secs * share;
+          if (part.stop) holds.push({ j, x: part.x, stop: true, b: part.b, q: secs / perCost });
+          else if (secs > 0) {
+            // Faster buses ease over a longer stretch, so slowing stays gentle.
+            const w = Math.min(part.room, Math.max(SLOW_DISTANCE_M, 3 * C / dt));
+            holds.push({ j, x: part.x, stop: false, w, a: secs / perCost / w });
+          }
+        }
+      }
+      return (trip.holds = holds);
+    }
+
+    // Extra cost a hold-up adds between the start of the run and distance d.
+    function holdCost(h, d) {
+      if (h.stop) {
+        const u = d - h.x;
+        if (u <= -h.b) return 0;
+        if (u < 0) { const s = -u / h.b; return h.b * (1 - 2 * Math.sqrt(s) + s); }
+        const s = Math.min(1, u / h.b);
+        return h.b + h.q + h.b * (2 * Math.sqrt(s) - s);
+      }
+      const s = (d - h.x) / h.w;
+      if (s <= -1) return 0;
+      if (s >= 1) return h.a * h.w;
+      return h.a * h.w * ((s + 1) / 2 + Math.sin(Math.PI * s) / (2 * Math.PI));
+    }
+
+    // Like alongWithCorners, for stop-to-stop run j of a trip, with its stops and hold-ups:
+    // `f` is the share of the run's time gone, and the last trip.dwell[j] seconds of it are
+    // spent waiting at the next stop.
+    function alongWithHolds(trip, j, f) {
+      const P = trip.pattern, d0 = P.stopDist[j], d1 = P.stopDist[j + 1];
+      const holds = tripHolds(trip).filter(h => h.j === j);
+      const T = stopTimes(trip), dt = T[j + 1] - T[j], dwell = trip.dwell[j] ?? 0;
+      if (dwell > 0 && dt > dwell) f = Math.min(1, f * dt / (dt - dwell));
+      if (!holds.length || f <= 0 || f >= 1) return alongWithCorners(P, d0, d1, f);
+      const cost = d => holds.reduce((c, h) => c + holdCost(h, d), costAt(P, d));
+      const c0 = cost(d0), target = c0 + (cost(d1) - c0) * f;
+      let lo = d0, hi = d1;
+      for (let k = 0; k < 32; k++) {
+        const mid = (lo + hi) / 2;
+        if (cost(mid) < target) lo = mid;
+        else hi = mid;
+      }
+      return (lo + hi) / 2;
+    }
+
     // Every journey through `stop` that is under way now (or about to be), with its timings.
     async function journeysThrough(stop) {
       const now = londonNow();
@@ -1780,7 +2047,7 @@
     function stopTimes(trip) {
       if (trip.stopTimes) return trip.stopTimes;
       const T = trip.offsets.map(m => m * 60), D = trip.pattern.stopDist, out = T.slice();
-      for (let i = 0; i < T.length;) {
+      for (let i = 0, g = 0; i < T.length;) {  // g: first stop of the group before this one
         let k = i;
         while (k + 1 < T.length && T[k + 1] === T[i]) k++;
         if (k > i && k + 1 < T.length) {
@@ -1788,11 +2055,12 @@
           const span = D[k + 1] - D[i], dt = T[k + 1] - T[i];
           for (let m = i + 1; m <= k; m++) out[m] = T[i] + (span ? (D[m] - D[i]) / span : (m - i) / (k + 1 - i)) * dt;
         } else if (k > i && i > 0) {
-          // The last few stops share the final minute: spread them between the stop before
-          // (as already spread) and the end.
-          const from = out[i - 1], span = D[k] - D[i - 1], dt = T[k] - from;
-          for (let m = i; m < k; m++) out[m] = from + (span ? (D[m] - D[i - 1]) / span : (m - i + 1) / (k - i + 1)) * dt;
+          // The last few stops share the final minute: spread them, and the group before
+          // (which was spread towards this one), evenly from that group's start to the end.
+          const span = D[k] - D[g], dt = T[k] - T[g];
+          for (let m = g + 1; m < k; m++) out[m] = T[g] + (span ? (D[m] - D[g]) / span : (m - g) / (k - g)) * dt;
         }
+        g = i;
         i = k + 1;
       }
       return (trip.stopTimes = out);
@@ -1847,7 +2115,8 @@
       while (j + 1 < T.length && T[j + 1] <= e) j++;
       if (j + 1 >= T.length) return { d: D[j], next: j };
       const f = (e - T[j]) / (T[j + 1] - T[j]);
-      return { d: alongWithCorners(trip.pattern, D[j], D[j + 1], f), next: j + 1 };
+      // Live buses are where they really are, so they don't get made-up hold-ups.
+      return { d: trip.live ? alongWithCorners(trip.pattern, D[j], D[j + 1], f) : alongWithHolds(trip, j, f), next: j + 1 };
     }
 
     // The inverse: seconds after the start when the timetable has the trip at distance `d`.
@@ -1866,12 +2135,147 @@
 
     // Where a trip is at `now` (seconds after midnight): position, and the next stop's index.
     function tripPosition(trip, now) {
-      const { d, next } = distanceAt(trip, tripClock(trip, now));
+      const e = tripClock(trip, now);
+      const leaving = leavingPose(trip, e);
+      if (leaving) return { lngLat: leaving.front, next: e < 0 ? 0 : 1 };
+      const { d, next } = distanceAt(trip, routeClock(trip, e));
       return { lngLat: pointAlong(trip.pattern, d), next };
     }
 
-    const nowSeconds = () => londonNow().secs + (Date.now() % 1000) / 1000;
+    // ---- Leaving a stand ----------------------------------------------------------------
+    // A journey that starts at an interchange stand waits in the stand's own spot, where the
+    // stand diagram draws it. At its time it leaves: out of a nose-in bay it reverses slowly,
+    // swinging round towards the way out, stops, then pulls away; from a kerbside stand it just
+    // pulls away. It joins its route a little way along and makes up the time by the next stop.
+    const REVERSE_M = 14, REVERSE_SECS = 14, MIN_REVERSE_SECS = 8, PAUSE_SECS = 2, MAX_REVERSE_TURN = 110;
+    const MAX_SQUEEZE = 1.5;
+    const JOIN_M = 30;               // joins its route this far along
+    const PULL_AWAY_SPEED = 2.5;     // average m/s pulling away, speeding up as it goes
+    const deg = Math.PI / 180;
+
+    // The interchange stand a pattern starts from, if it's one with a parking spot drawn.
+    function startStand(pattern, stops) {
+      if (pattern.startStand !== undefined) return pattern.startStand;
+      pattern.startStand = null;
+      const [, , lng, lat] = stops[pattern.stops[0]];
+      const kx = 111320 * Math.cos(lat * deg);
+      const far = (a, b) => Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * 110540);
+      let best = 15;  // metres: the stop and the stand are the same NaPTAN point, give or take
+      for (const layout of Object.values(LAYOUTS)) {
+        if (far(layout.origin, [lng, lat]) > 800) continue;
+        for (const stand of layout.stands) {
+          if (!stand.bus) continue;
+          const off = far(toLngLat(layout, [stand.x, stand.y]), [lng, lat]);
+          if (off < best) { best = off; pattern.startStand = { layout, stand }; }
+        }
+      }
+      return pattern.startStand;
+    }
+
+    // How a trip leaves its stand, worked out once: positions in metres east and north of the
+    // parked bus's front axle, and how long each part takes.
+    function leavePlan(trip) {
+      if (trip.leave !== undefined) return trip.leave;
+      trip.leave = null;
+      if (isTramLine(trip.line) || !trip.stops) return null;
+      const P = trip.pattern, T = stopTimes(trip), D = P.stopDist;
+      const found = startStand(P, trip.stops);
+      if (!found || T.length < 2 || D[1] < JOIN_M + 20) return null;
+      const { layout, stand } = found;
+      const u = h => [Math.sin(h * deg), Math.cos(h * deg)];  // east, north
+      const h0 = stand.bus.heading;
+      // The diagram's bus has its front at stand.bus.front; the front axle is 1.5 m behind.
+      const nose = toLngLat(layout, stand.bus.front);
+      const kx = 111320 * Math.cos(nose[1] * deg);
+      const origin = [nose[0] - u(h0)[0] * 1.5 / kx, nose[1] - u(h0)[1] * 1.5 / 110540];
+      const toMetres = ll => [(ll[0] - origin[0]) * kx, (ll[1] - origin[1]) * 110540];
+      const toLL = ([x, y]) => [origin[0] + x / kx, origin[1] + y / 110540];
+      const join = toMetres(pointAlong(P, JOIN_M)), hJ = bearingAlong(P, JOIN_M);
+      // Reversing: the rear axle backs away along an arc, turning the bus by up to
+      // MAX_REVERSE_TURN towards the way it'll leave. The front axle is 8 m ahead of it.
+      const bay = stand.kind === "bay";
+      const turn = Math.max(-MAX_REVERSE_TURN, Math.min(MAX_REVERSE_TURN, ((hJ - h0 + 540) % 360) - 180));
+      const steps = 24, back = [];
+      let rear = [-u(h0)[0] * BUS_REAR_AXLE_M, -u(h0)[1] * BUS_REAR_AXLE_M];
+      for (let k = 0; k <= steps; k++) {
+        const h = h0 + (bay ? turn * k / steps : 0);
+        back.push({ rear: rear.slice(), h });
+        const step = bay ? REVERSE_M / steps : 0;
+        rear = [rear[0] - u(h)[0] * step, rear[1] - u(h)[1] * step];
+      }
+      const last = back.at(-1), h1 = last.h;
+      const start = [last.rear[0] + u(h1)[0] * BUS_REAR_AXLE_M, last.rear[1] + u(h1)[1] * BUS_REAR_AXLE_M];
+      // Pulling away: a smooth curve from there to the join, leaving and arriving straight.
+      const gap = Math.hypot(join[0] - start[0], join[1] - start[1]);
+      const k0 = gap * 1.2, t0 = u(h1), t1 = u(hJ);
+      const curve = t => {
+        const a = 2 * t ** 3 - 3 * t ** 2 + 1, b = t ** 3 - 2 * t ** 2 + t, c = -2 * t ** 3 + 3 * t ** 2, d = t ** 3 - t ** 2;
+        return [a * start[0] + b * k0 * t0[0] + c * join[0] + d * k0 * t1[0], a * start[1] + b * k0 * t0[1] + c * join[1] + d * k0 * t1[1]];
+      };
+      let length = 0;
+      for (let k = 1, prev = curve(0); k <= 24; k++) { const q = curve(k / 24); length += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q; }
+      let lo = 0, hi = T[1];  // when the bus would pass the join point, stops and hold-ups included
+      for (let k = 0; k < 40; k++) { const mid = (lo + hi) / 2; if (distanceAt(trip, mid).d < JOIN_M) lo = mid; else hi = mid; }
+      const joinTime = hi;
+      // Making up the time afterwards mustn't need more than MAX_SQUEEZE times the usual pace,
+      // so when time is short it leaves the stand more briskly, or not at all.
+      const allowed = T[1] - (T[1] - joinTime) / MAX_SQUEEZE;
+      let reverseSecs = bay ? REVERSE_SECS : 0, pauseSecs = bay ? PAUSE_SECS : 0, pullSecs = Math.max(6, length / PULL_AWAY_SPEED);
+      const wanted = reverseSecs + pauseSecs + pullSecs;
+      if (wanted > allowed) {
+        const k = allowed / wanted;
+        reverseSecs *= k; pauseSecs *= k; pullSecs *= k;
+        if ((bay && reverseSecs < MIN_REVERSE_SECS) || pullSecs < 4) return null;  // no time to do it properly
+      }
+      const total = reverseSecs + pauseSecs + pullSecs;
+      if (joinTime >= T[1]) return null;
+      return (trip.leave = { back, curve, toLL, h0, reverseSecs, pauseSecs, pullSecs, total, joinTime, T1: T[1] });
+    }
+
+    // The trip's clock as its route sees it: after a stand departure, the rest of the run to the
+    // first stop is squeezed so it still gets there on time.
+    function routeClock(trip, e) {
+      const plan = leavePlan(trip);
+      if (!plan || e < plan.total || e >= plan.T1) return e;
+      return plan.joinTime + (e - plan.total) * (plan.T1 - plan.joinTime) / (plan.T1 - plan.total);
+    }
+
+    // While a trip is in or leaving its stand: its front axle, body middle and heading.
+    function leavingPose(trip, e) {
+      if (trip.live) return null;
+      const plan = leavePlan(trip);
+      if (!plan || e >= plan.total) return null;
+      const u = h => [Math.sin(h * deg), Math.cos(h * deg)];
+      let front, h;
+      if (e < plan.reverseSecs + plan.pauseSecs) {
+        const f = e <= 0 ? 0 : Math.min(1, e / plan.reverseSecs);
+        const at = (f * f * (3 - 2 * f)) * (plan.back.length - 1);  // eases off and back on
+        const i = Math.min(plan.back.length - 2, Math.floor(at)), t = at - i;
+        const a = plan.back[i], b = plan.back[i + 1];
+        h = a.h + (b.h - a.h) * t;
+        const rear = [a.rear[0] + (b.rear[0] - a.rear[0]) * t, a.rear[1] + (b.rear[1] - a.rear[1]) * t];
+        front = [rear[0] + u(h)[0] * BUS_REAR_AXLE_M, rear[1] + u(h)[1] * BUS_REAR_AXLE_M];
+      } else {
+        const g = (e - plan.reverseSecs - plan.pauseSecs) / plan.pullSecs, t = g * g;  // pulls away from a standstill
+        front = plan.curve(t);
+        const ahead = plan.curve(Math.min(1, t + 0.02)), behind = plan.curve(Math.max(0, t - 0.02));
+        h = Math.atan2(ahead[0] - behind[0], ahead[1] - behind[1]) / deg;
+      }
+      const middle = [front[0] - u(h)[0] * (BUS_REAR_AXLE_M - (BUS_LENGTH_M / 2 - BUS_REAR_OVERHANG_M)),
+                      front[1] - u(h)[1] * (BUS_REAR_AXLE_M - (BUS_LENGTH_M / 2 - BUS_REAR_OVERHANG_M))];
+      return { front: plan.toLL(front), lngLat: plan.toLL(middle), bearing: h };
+    }
+
+    const nowSeconds = () => {
+      const ms = Date.now();  // one reading, so the fraction and the whole seconds agree
+      return londonNow(new Date(ms)).secs + (ms % 1000) / 1000;
+    };
     const runningTrips = (now = nowSeconds()) => tracked.trips.filter(t => isRunning(t, now));
+
+    // The network's copy of a station's tram journey. Station times are whole minutes while the
+    // network's starts carry seconds, so the two can disagree by a minute or so.
+    const fleetTwin = trip => isTramLine(trip.line) && fleet.trips.find(t =>
+      t.key === trip.key || (t.line === trip.line && t.variant === trip.variant && Math.abs(t.start - trip.start) <= 90));
 
     function vehicleData() {
       const now = nowSeconds();
@@ -1879,14 +2283,65 @@
         // A followed bus is drawn waiting at its first stop until it sets off.
         const waiting = trip.key === following && tripClock(trip, now) < 0;
         if (!isRunning(trip, now) && !waiting) return [];
-        if (fleetOn() && fleet.trips.some(t => t.key === trip.key)) return [];  // drawn as a moving tram
+        if (fleetOn() && fleetTwin(trip)) return [];  // drawn as a moving tram
+        const followed = trip.key === following;  // drawn by the follow marker, not here
         return [point(tripPosition(trip, now).lngLat, {
           key: trip.key, route: shortLineName(trip.line), passed: now - delayOf(trip) > trip.stopAt,
-          live: !!trip.live, followed: trip.key === following,
+          live: !!trip.live, followed,
           // Dark buses with white numbers, so they don't look like the yellow interchange markers.
           colour: META.lines[trip.line][5] || "#1f2933", text: "#ffffff"
         })];
       }));
+    }
+
+    // Where a bus's body sits with its front at distance d. A bus steers from the front and its
+    // rear wheels follow the road behind, so the body points from the rear axle (about 8 m back
+    // along the road) to the front: going round a corner the nose swings in first and the back
+    // cuts the inside, rather than the whole bus turning on the spot.
+    const BUS_REAR_AXLE_M = 8, BUS_LENGTH_M = 12, BUS_REAR_OVERHANG_M = 2.5;
+    function busPose(pattern, d) {
+      const front = pointAlong(pattern, d);
+      const kx = Math.cos(front[1] * Math.PI / 180);
+      let rear = pointAlong(pattern, Math.max(0, d - BUS_REAR_AXLE_M));
+      if (d < BUS_REAR_AXLE_M) {  // just setting off: the road behind runs straight back from the start
+        const start = pointAlong(pattern, 0), on = pointAlong(pattern, Math.min(10, pattern.cum.at(-1)));
+        const len = Math.hypot((on[0] - start[0]) * kx * 111320, (on[1] - start[1]) * 110540);
+        if (len > 0.5) {
+          const back = (BUS_REAR_AXLE_M - d) / len;
+          rear = [start[0] - (on[0] - start[0]) * back, start[1] - (on[1] - start[1]) * back];
+        }
+      }
+      const ex = (front[0] - rear[0]) * kx * 111320, ny = (front[1] - rear[1]) * 110540;
+      const span = Math.hypot(ex, ny);
+      if (span < 1) return { lngLat: front, bearing: bearingAlong(pattern, d) };  // not under way yet
+      // The body's middle is half a length minus the rear overhang ahead of the rear axle.
+      const k = (BUS_LENGTH_M / 2 - BUS_REAR_OVERHANG_M) / span;
+      return { lngLat: [rear[0] + (front[0] - rear[0]) * k, rear[1] + (front[1] - rear[1]) * k],
+        bearing: Math.atan2(ex, ny) * 180 / Math.PI };
+    }
+
+    // A bus seen from above, like the ones waiting in the stand diagrams, nose to the right.
+    function busImage() {
+      const s = 2, w = 124 * s, h = 30 * s, c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const g = c.getContext("2d");
+      g.scale(s, s);
+      g.lineJoin = "round";
+      // Body: 12 m by 2.55 m at 10 px a metre, with the front corners cut like the diagram's.
+      g.beginPath();
+      g.moveTo(2, 2.25); g.lineTo(115, 2.25); g.lineTo(122, 7.25); g.lineTo(122, 22.75); g.lineTo(115, 27.75); g.lineTo(2, 27.75);
+      g.closePath();
+      g.fillStyle = "#ffc72c";
+      g.fill();
+      g.strokeStyle = "#1f2933";
+      g.lineWidth = 2.5;
+      g.stroke();
+      g.beginPath();  // windscreen
+      g.moveTo(106, 4.75); g.lineTo(118.5, 8.75); g.lineTo(118.5, 21.25); g.lineTo(106, 25.25);
+      g.closePath();
+      g.fillStyle = "rgba(31, 41, 51, 0.8)";
+      g.fill();
+      return g.getImageData(0, 0, w, h);
     }
 
     function addVehiclesToMap() {
@@ -1894,7 +2349,8 @@
       map.addSource("veh-src", { type: "geojson", data: vehicleData() });
       // Buses that have already left the stop are paler than those still to come.
       const opacity = ["case", ["get", "passed"], 0.55, 1];
-      map.addLayer({ id: "veh-dot", type: "circle", source: "veh-src",
+      const isFollowed = ["==", ["get", "followed"], true];
+      map.addLayer({ id: "veh-dot", type: "circle", source: "veh-src", filter: ["!", isFollowed],
         paint: {
           // Zoom has to be the outermost expression, so the followed bus's bigger size goes inside it.
           "circle-radius": ["interpolate", ["linear"], ["zoom"],
@@ -1904,7 +2360,7 @@
           "circle-stroke-color": ["case", ["get", "followed"], "#2563eb", ["get", "live"], "#22c55e", "#ffffff"],
           "circle-stroke-width": ["case", ["get", "followed"], 4, ["get", "live"], 3, 2], "circle-stroke-opacity": opacity
         } });
-      map.addLayer({ id: "veh-label", type: "symbol", source: "veh-src", minzoom: 9,
+      map.addLayer({ id: "veh-label", type: "symbol", source: "veh-src", minzoom: 9, filter: ["!", isFollowed],
         layout: { "text-field": ["get", "route"], "text-font": LABEL_FONT_BOLD,
           "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 16, 11],
           "text-allow-overlap": true, "text-ignore-placement": true },
@@ -2049,7 +2505,7 @@
     let following = null;  // key of the followed journey
     // A journey by key, from the open stop's buses or the network's trams.
     const findTrip = key => tracked.trips.find(t => t.key === key) ?? fleet.trips.find(t => t.key === key) ??
-      (route?.trip?.key === key ? route.trip : undefined);
+      (route?.trip && route.trip.key === key ? route.trip : undefined);
     // Trips drawn as dots: the open stop's, plus the open journey if it isn't among them.
     const dotTrips = () => route?.trip && !tracked.trips.some(t => t.key === route.trip.key)
       ? [...tracked.trips, route.trip] : tracked.trips;
@@ -2066,9 +2522,21 @@
       renderPanel();
     }
 
+    // MapLibre keeps the padding given to easeTo/jumpTo, and later fitBounds calls add their own
+    // on top. Once following ends, drop it without moving what's on screen.
+    function clearCameraPadding() {
+      const { top, right, bottom, left } = map.getPadding();
+      if (!(top || right || bottom || left)) return;
+      const canvas = map.getCanvas();
+      const middle = map.unproject([canvas.clientWidth / 2, canvas.clientHeight / 2]);
+      map.jumpTo({ center: middle, padding: { top: 0, right: 0, bottom: 0, left: 0 } });
+    }
+
     function stopFollowing(message) {
       if (!following) return;
       following = null;
+      removeFollowMarker();
+      clearCameraPadding();
       if (route) renderPanel();
       if (message) document.getElementById("veh-next")?.replaceChildren(message);
     }
@@ -2096,7 +2564,99 @@
       const trip = findTrip(following);
       const now = nowSeconds();
       if (!trip || tripClock(trip, now) > trip.offsets.at(-1) * 60) return stopFollowing("This journey has finished.");
-      map.jumpTo({ center: tripPosition(trip, now).lngLat, padding: panelPadding() });
+      map.jumpTo({ center: vehiclePose(trip, now).lngLat, padding: panelPadding() });
+    }
+
+    // ---- The followed vehicle -----------------------------------------------------------
+    // Drawn as a marker rather than in a map layer: the map redraws a layer's data a frame or
+    // two after it's given it, so a layer's bus lags the camera and wobbles about the middle of
+    // the screen. A marker moves in step with the camera, so it stays put.
+    const followMarker = { marker: null, key: null, tram: false, ratio: 1, label: null };
+
+    // Where a vehicle is drawn now: the middle of its body, and the way it's facing.
+    function vehiclePose(trip, now) {
+      const e = tripClock(trip, now);
+      const leaving = leavingPose(trip, e);
+      if (leaving) return leaving;
+      const { d } = distanceAt(trip, routeClock(trip, Math.max(0, e)));
+      if (isTramLine(trip.line)) return { lngLat: pointAlong(trip.pattern, d), bearing: bearingAlong(trip.pattern, d) };
+      return busPose(trip.pattern, d);
+    }
+
+    // Zoom-dependent sizes, as MapLibre's "interpolate" would give them.
+    function interpolateZoom(stops, z, base = 1) {
+      if (z <= stops[0][0]) return stops[0][1];
+      for (let i = 1; i < stops.length; i++) {
+        const [z0, v0] = stops[i - 1], [z1, v1] = stops[i];
+        if (z > z1) continue;
+        const t = base === 1 ? (z - z0) / (z1 - z0) : (base ** (z - z0) - 1) / (base ** (z1 - z0) - 1);
+        return v0 + (v1 - v0) * t;
+      }
+      return stops.at(-1)[1];
+    }
+    // The bus picture is 124 px long at size 1 and 12 m long, so it's true to size from zoom
+    // 18 in (a metre is 2^z / 46,640 px here); trams match the moving-tram icons, a size up.
+    const BUS_SIZE = [[9, 0.3], [15, 0.45], [18, 0.55], [20, 2.2]], TRAM_SIZE = [[9, 0.95], [13, 1.35], [17, 1.8]];
+
+    function makeFollowMarker(trip) {
+      const tram = isTramLine(trip.line);
+      const picture = tram ? tramImage(META.lines[trip.line][5] || "#555555") : busImage();
+      const el = document.createElement("div");
+      el.className = "follow-vehicle";
+      const canvas = document.createElement("canvas");
+      canvas.width = picture.width;
+      canvas.height = picture.height;
+      canvas.getContext("2d").putImageData(picture, 0, 0);
+      el.append(canvas);
+      let label = null;
+      if (!tram) {
+        label = document.createElement("span");
+        label.textContent = shortLineName(trip.line);
+        el.append(label);
+      }
+      el.addEventListener("click", e => { e.stopPropagation(); openTrip(trip); });
+      const marker = new maplibregl.Marker({ element: el, rotationAlignment: "map", pitchAlignment: "map" });
+      Object.assign(followMarker, { marker, key: trip.key, tram, ratio: picture.height / picture.width, label });
+    }
+
+    // Whether the open stand diagram is already drawing this bus waiting on its stand.
+    function diagramShowsWaiting(trip, now) {
+      if (!diagram.stop || !trip.stops || tripClock(trip, now) >= 0) return false;
+      const found = startStand(trip.pattern, trip.stops);
+      if (!found || diagram.layout !== found.layout) return false;
+      const dep = standOccupancy(diagram.stop).get(found.stand.label);
+      return !!dep && dep.line === trip.line && Math.abs((dep.at ?? dep.secs) - trip.start) < 60;
+    }
+
+    function removeFollowMarker() {
+      followMarker.marker?.remove();
+      Object.assign(followMarker, { marker: null, key: null, label: null });
+    }
+
+    function drawFollowMarker(now) {
+      const trip = following && findTrip(following);
+      const hidden = !trip || (isTramLine(trip.line) ? !tramToggle.checked || !!diagram.stop : diagramShowsWaiting(trip, now));
+      if (hidden) return removeFollowMarker();
+      if (followMarker.key !== trip.key) {
+        removeFollowMarker();
+        makeFollowMarker(trip);
+      }
+      const { marker, tram, ratio, label } = followMarker;
+      const pose = vehiclePose(trip, now);
+      const z = map.getZoom();
+      const width = (tram ? 56 * interpolateZoom(TRAM_SIZE, z) : 124 * interpolateZoom(BUS_SIZE, z, 2));
+      const el = marker.getElement();
+      el.style.width = `${width}px`;
+      el.style.height = `${width * ratio}px`;
+      const rotate = pose.bearing - 90;
+      marker.setLngLat(pose.lngLat).setRotation(rotate);
+      if (label) {
+        // The route number runs along the bus, turned so it never reads upside down.
+        const upright = ((rotate % 360) + 450) % 180 - 90;
+        label.style.fontSize = `${Math.max(6, width * 0.15)}px`;
+        label.style.transform = `rotate(${upright - rotate}deg)`;
+      }
+      if (!marker._map) marker.addTo(map);
     }
 
 
@@ -2491,6 +3051,14 @@
     // arrowhead in front and a chevron on each car so its direction reads at any zoom. The
     // image rotates with the tram, so the arrows always point the way it's travelling. Blank
     // space behind balances the arrowhead, keeping the tram centred on its position.
+    // Compass bearing of the track at distance d, in degrees.
+    function bearingAlong(pattern, d) {
+      const ahead = pointAlong(pattern, Math.min(d + 20, pattern.cum.at(-1)));
+      const behind = pointAlong(pattern, Math.max(d - 20, 0));
+      const kx = Math.cos(ahead[1] * Math.PI / 180);
+      return Math.atan2((ahead[0] - behind[0]) * kx, ahead[1] - behind[1]) * 180 / Math.PI;
+    }
+
     function tramImage(colour) {
       const w = 112, h = 26, c = document.createElement("canvas");
       c.width = w; c.height = h;
@@ -2532,13 +3100,8 @@
         if (!isRunning(trip, now)) return [];
         const e = tripClock(trip, now);
         const { d } = distanceAt(trip, e);
-        const here = pointAlong(trip.pattern, d);
-        const ahead = pointAlong(trip.pattern, Math.min(d + 20, trip.pattern.cum.at(-1)));
-        const behind = pointAlong(trip.pattern, Math.max(d - 20, 0));
-        const kx = Math.cos(here[1] * Math.PI / 180);
-        const bearing = Math.atan2((ahead[0] - behind[0]) * kx, ahead[1] - behind[1]) * 180 / Math.PI;
-        return [point(here, { key: trip.key, image: tramImageId(META.lines[trip.line][5] || "#555555"),
-          rotate: bearing - 90, followed: trip.key === following })];
+        return [point(pointAlong(trip.pattern, d), { key: trip.key, image: tramImageId(META.lines[trip.line][5] || "#555555"),
+          rotate: bearingAlong(trip.pattern, d) - 90, followed: trip.key === following })];
       }));
     }
 
@@ -2550,7 +3113,7 @@
         }
       }
       map.addSource("fleet-src", { type: "geojson", data: fleetData() });
-      map.addLayer({ id: "fleet-icon", type: "symbol", source: "fleet-src",
+      map.addLayer({ id: "fleet-icon", type: "symbol", source: "fleet-src", filter: ["!", ["get", "followed"]],
         layout: {
           visibility: diagram.stop ? "none" : "visible",
           "icon-image": ["get", "image"], "icon-rotate": ["get", "rotate"],
@@ -2602,16 +3165,17 @@
     // One animation loop moves every bus and tram, and the camera when following, about 30 times
     // a second, so they glide instead of ticking. The bus card's text only needs updating twice
     // a second. The browser pauses the loop while the tab is hidden.
-    let lastFrame = 0;
     let lastCard = 0;
+    // Every frame, so vehicles move evenly; the followed one and the camera move together.
     function animate(time) {
       requestAnimationFrame(animate);
-      if (time - lastFrame < 33) return;
-      lastFrame = time;
+      if (styleLoading) return;
       if (!map.getSource("veh-src") && (tracked.stop || following)) addVehiclesToMap();
       map.getSource("veh-src")?.setData(vehicleData());
       map.getSource("fleet-src")?.setData(fleetData());
+      const now = nowSeconds();
       followFrame();
+      drawFollowMarker(now);
       if (time - lastCard > 500) {
         lastCard = time;
         updateVehicleCard();
@@ -2628,6 +3192,7 @@
 
     // A style switch wipes custom layers; redraw everything in the new theme, bottom to top.
     map.on("style.load", () => {
+      styleLoading = false;
       addMetrolinkToMap();
       addStopsToMap();
       addDiagramToMap();

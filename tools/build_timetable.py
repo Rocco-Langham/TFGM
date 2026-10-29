@@ -41,6 +41,12 @@ TRAM_COLOURS = {  # Metrolink's line colours
     "Blue Line": "#0b78d0", "Green Line": "#3a9d3a", "Navy Line": "#1f2f7a", "Pink Line": "#e2457a",
     "Purple Line": "#7b3fa0", "Red Line": "#d6312b", "Yellow Line": "#f2c500",
 }
+# Bee Network routes are franchised: TfGM's timetable names them all "Bee Network", and tells
+# the companies running them apart by National Operator Code.
+BEE_NETWORK_COMPANIES = {
+    "BNDB": "Diamond", "BNFM": "First Manchester", "BNGN": "Go North West",
+    "BNML": "Metroline", "BNSM": "Stagecoach", "BNVB": "Vision Bus",
+}
 DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 
@@ -59,10 +65,13 @@ def simplify(points, tolerance):
         a, b = stack.pop()
         (ax, ay), (bx, by) = points[a], points[b]
         dx, dy = bx - ax, by - ay
-        seg = math.hypot(dx, dy) or 1e-9
+        seg = math.hypot(dx, dy)
         far, far_d = None, tolerance
         for k in range(a + 1, b):
-            d = abs(dy * (points[k][0] - ax) - dx * (points[k][1] - ay)) / seg
+            px, py = points[k][0] - ax, points[k][1] - ay
+            # A loop that ends where it starts has no line to measure from: use the distance
+            # from that point instead, or every point in between would be dropped.
+            d = abs(dy * px - dx * py) / seg if seg > 1e-9 else math.hypot(px, py)
             if d > far_d:
                 far, far_d = k, d
         if far is not None:
@@ -145,7 +154,12 @@ def main():
     # ---- GTFS reference tables -------------------------------------------------------------
     gtfs = zipfile.ZipFile(io.BytesIO(fetch(args.gtfs)))
     stop_info = {r["stop_id"]: r for r in read_csv(gtfs, "stops.txt")}
-    agencies = {r["agency_id"]: r["agency_name"] for r in read_csv(gtfs, "agency.txt")}
+    agency_rows = {r["agency_id"]: r for r in read_csv(gtfs, "agency.txt")}
+    agencies = {a: r["agency_name"] for a, r in agency_rows.items()}
+    # The company that runs each agency's buses: its own name, except that Bee Network
+    # (franchised) routes are run by different companies, told apart by operator code.
+    companies = {a: BEE_NETWORK_COMPANIES.get(r.get("agency_noc", ""), r["agency_name"])
+                 for a, r in agency_rows.items()}
     routes = {r["route_id"]: r for r in read_csv(gtfs, "routes.txt")}
     trips = {r["trip_id"]: r for r in read_csv(gtfs, "trips.txt")}
 
@@ -285,7 +299,8 @@ def main():
                  {"stops": [list(s) for s in stop_table.items], "patterns": out_patterns, "variants": out_variants})
         mode = "tram" if route_id in tram_routes else "bus"
         line_meta.append([route["route_short_name"], route["route_long_name"], agencies.get(route["agency_id"], ""),
-                          mode, file, TRAM_COLOURS.get(route["route_short_name"], "") if mode == "tram" else ""])
+                          mode, file, TRAM_COLOURS.get(route["route_short_name"], "") if mode == "tram" else "",
+                          companies.get(route["agency_id"], "")])
 
     # ---- Calendars ------------------------------------------------------------------------
     cal = {}
@@ -301,7 +316,8 @@ def main():
 
     write_js(out / "meta.js", "window.GM_META", {
         "generated": datetime.now(timezone.utc).isoformat(timespec="minutes"),
-        # [route number, name, operator, "bus" | "tram", file under data/lines/, tram colour]
+        # [route number, name, operator, "bus" | "tram", file under data/lines/, tram colour,
+        #  company running it]
         "lines": line_meta,
         "headsigns": headsigns.items,
         "services": [cal.get(s, {"days": "0000000", "start": 0, "end": 0, "add": [], "remove": []})

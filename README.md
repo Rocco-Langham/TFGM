@@ -5,7 +5,7 @@ A single-page map of Greater Manchester with light, dark and satellite styles, s
 - the 17 major bus interchanges, each with a to-scale stand diagram and the buses due to leave
 - every other bus stop, with next departures, and stand diagrams for groups of lettered stops
 - the Metrolink network and next trams
-- the route of any bus or tram you click, and search by stop, town or route number
+- the route of any bus or tram you click, who runs it, and search by stop, town or route number
 
 Times come from TfGM's published timetable, so they are scheduled, not live.
 
@@ -21,8 +21,10 @@ Then open `index.html` in a browser. It works straight from disk; no server is n
 
 ## Live buses (optional)
 
-Without live data, buses and trams are drawn where the timetable puts them. To see real bus
-positions, and whether each bus is early or late:
+Without live data, buses and trams are drawn where the timetable puts them. To make that look
+less mechanical, each bus is also held up at random at some junctions, stopping for a few seconds
+or slowing for traffic, while still reaching every stop at its timetabled time. To see real bus
+positions instead, and whether each bus is early or late:
 
 1. Register for a free key at the [Bus Open Data Service](https://data.bus-data.dft.gov.uk/).
 2. Save it in a file called `.bods_key` in this folder (it's git-ignored).
