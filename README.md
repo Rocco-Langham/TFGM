@@ -53,6 +53,7 @@ rm ~/Library/LaunchAgents/com.tfgm-map.refresh.plist
 | File | Built by | Source |
 | --- | --- | --- |
 | `data/meta.js`, `data/bus-departures.js`, `data/stops.js`, `data/stops/`, `data/lines/`, `data/metrolink.js` | `tools/build_timetable.py` (via `tools/refresh_data.sh`) | [TfGM GTFS](https://odata.tfgm.com/opendata/downloads/TfGMgtfsnew.zip), [NaPTAN](https://naptan.api.dft.gov.uk/) |
+| (used by the above) | `tools/osm_roads.py` snaps bus routes onto the roads, in the left-hand lane | [OpenFreeMap](https://openfreemap.org/) vector tiles (OpenStreetMap), cached in `tools/.cache/` |
 | `data/interchange-layouts.js` | `tools/build_layouts.py` (rarely needed) | NaPTAN, [OpenStreetMap](https://www.openstreetmap.org/copyright) via Overpass |
 
 Map tiles: [OpenFreeMap](https://openfreemap.org/) (light and dark) and Esri World Imagery (satellite).

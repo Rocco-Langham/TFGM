@@ -8,5 +8,6 @@ data/stops/
 data/lines/
 
 __pycache__/
+tools/.cache/
 .DS_Store
 .bods_key

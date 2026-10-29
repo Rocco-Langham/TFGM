@@ -31,6 +31,7 @@ from pathlib import Path
 
 from common import (BOARDING_TYPES, DATA, GTFS_URL, INTERCHANGES, NAPTAN_URL, fetch, gtfs_seconds, read_csv, slug,
                     write_js)
+from osm_roads import RoadSnapper, load_roads, tile_of
 
 CELL_LON, CELL_LAT = 0.03, 0.02      # ~2 km x 2.2 km departure files
 CLUSTER_RADIUS_M = 200               # same-named stops this close count as one place
@@ -41,6 +42,8 @@ TRAM_COLOURS = {  # Metrolink's line colours
     "Blue Line": "#0b78d0", "Green Line": "#3a9d3a", "Navy Line": "#1f2f7a", "Pink Line": "#e2457a",
     "Purple Line": "#7b3fa0", "Red Line": "#d6312b", "Yellow Line": "#f2c500",
 }
+SNAP_AREA = ((-2.85, 53.27), (-1.85, 53.75))  # Greater Manchester and a little beyond
+
 # Bee Network routes are franchised: TfGM's timetable names them all "Bee Network", and tells
 # the companies running them apart by National Operator Code.
 BEE_NETWORK_COMPANIES = {
@@ -126,6 +129,7 @@ def main():
     ap.add_argument("--gtfs", default=GTFS_URL, help="GTFS zip path or URL")
     ap.add_argument("--naptan", default=NAPTAN_URL, help="NaPTAN CSV path or URL")
     ap.add_argument("--out", default=str(DATA), help="folder to write into (default: data/)")
+    ap.add_argument("--no-snap", action="store_true", help="keep TfGM's route shapes as they are")
     args = ap.parse_args()
     out = Path(args.out)
 
@@ -246,6 +250,23 @@ def main():
             shapes[r["shape_id"]].append((int(r["shape_pt_sequence"]), dist, float(r["shape_pt_lon"]), float(r["shape_pt_lat"])))
     for pts in shapes.values():
         pts.sort()
+
+    # Bus routes onto the roads they run along, in the left-hand lane (see osm_roads.py).
+    # Trams have their own tracks. Only within SNAP_AREA, to keep the road download small.
+    if not args.no_snap:
+        tram_shapes = {info["shape"] for line, pats in pattern_info.items() if lines.items[line] in tram_routes
+                       for info in pats.values()}
+        (w, s_), (e, n) = SNAP_AREA
+        inside = lambda lon, lat: w <= lon <= e and s_ <= lat <= n
+        bus_shapes = [sid for sid in shapes if sid not in tram_shapes]
+        tiles = {tile_of(lon, lat) for sid in bus_shapes for _, _, lon, lat in shapes[sid] if inside(lon, lat)}
+        snapper = RoadSnapper(load_roads(tiles), lat0=(s_ + n) / 2)
+        print(f"Snapping {len(bus_shapes)} bus route shapes onto roads ...")
+        for sid in bus_shapes:
+            pts = shapes[sid]
+            snapped = snapper.snap_path([(q[2], q[3]) for q in pts])
+            shapes[sid] = [(q[0], q[1], *(xy if inside(q[2], q[3]) else (q[2], q[3])))
+                           for q, xy in zip(pts, snapped)]
 
     def town(info):
         loc = naptan.get(info["stop_code"], {}).get("LocalityName", "")

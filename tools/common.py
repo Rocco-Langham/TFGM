@@ -38,11 +38,12 @@ INTERCHANGES = [
 BOARDING_TYPES = {"BCS", "BCQ", "BCT"}
 
 
-def fetch(url_or_path, data=None):
+def fetch(url_or_path, data=None, quiet=False):
     """Bytes from a local file or a URL."""
     if data is None and Path(url_or_path).exists():
         return Path(url_or_path).read_bytes()
-    print(f"Downloading {url_or_path} ...")
+    if not quiet:
+        print(f"Downloading {url_or_path} ...")
     req = urllib.request.Request(url_or_path, data=data, headers={"User-Agent": "gm-map-builder"})
     try:
         with urllib.request.urlopen(req, timeout=600) as resp:
