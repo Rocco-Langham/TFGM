@@ -1501,8 +1501,19 @@
       const isLine = ["==", ["get", "kind"], "line"], isStop = ["==", ["get", "kind"], "stop"];
       map.addLayer({ id: "rt-casing", type: "line", source: "rt-src", filter: isLine,
         layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": theme.routeCasing, "line-width": 9 } }, firstLayer("fleet-icon", "veh-dot"));
+      // A journey with its bus on the map shows how far it's got in yellow; where the route is
+      // yellow already, the part still to come is dimmed so the two can be told apart.
+      const progress = route.kind === "journey" && !!route.trip;
       map.addLayer({ id: "rt-line", type: "line", source: "rt-src", filter: isLine,
-        layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": colour, "line-width": 5 } }, firstLayer("fleet-icon", "veh-dot"));
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": colour, "line-width": 5,
+          "line-opacity": progress && colour.toLowerCase() === PROGRESS_COLOUR ? 0.4 : 1 } }, firstLayer("fleet-icon", "veh-dot"));
+      if (progress) {
+        map.addSource("rt-progress-src", { type: "geojson", data: progressData() });
+        map.addLayer({ id: "rt-progress", type: "line", source: "rt-progress-src",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": PROGRESS_COLOUR, "line-width": 6 } }, firstLayer("fleet-icon", "veh-dot"));
+      }
       map.addLayer({ id: "rt-stops", type: "circle", source: "rt-src", filter: isStop,
         paint: {
           "circle-radius": ["case", ["get", "end"], 6, 3.5],
@@ -1517,6 +1528,22 @@
           "symbol-sort-key": ["case", ["get", "end"], 0, 1]  // first and last stop win label space
         },
         paint: { "text-color": theme.routeText, "text-halo-color": theme.routeHalo, "text-halo-width": 2.2, "text-halo-blur": 0.3 } }, firstLayer("fleet-icon", "veh-dot"));
+    }
+
+    // The open journey's route from its first listed stop up to where its vehicle is now.
+    const PROGRESS_COLOUR = "#ffc72c";
+    function progressData() {
+      const trip = route?.trip, dep = route?.dep;
+      if (!trip || !dep) return collection([]);
+      const P = trip.pattern, e = tripClock(trip, nowSeconds());
+      if (e <= 0 || leavingPose(trip, e)) return collection([]);  // not on its route yet
+      const from = P.stopDist[dep.pos] ?? 0;
+      const to = Math.min(P.cum.at(-1), distanceAt(trip, routeClock(trip, e)).d);
+      if (to <= from + 0.5) return collection([]);
+      const coords = [pointAlong(P, from)];
+      for (let k = segmentAt(P.cum, from) + 1; k < P.track.length && P.cum[k] < to; k++) coords.push(P.track[k]);
+      coords.push(pointAlong(P, to));
+      return collection([{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } }]);
     }
 
     // Drop the route without moving the map or redrawing the panel.
@@ -3171,8 +3198,13 @@
       requestAnimationFrame(animate);
       if (styleLoading) return;
       if (!map.getSource("veh-src") && (tracked.stop || following)) addVehiclesToMap();
+      if (route?.trip && route.path && !map.getSource("rt-progress-src") && map.getSource("rt-src")) {
+        removeLayers("rt-");  // the journey's bus turned up after its route was drawn
+        addRouteToMap();
+      }
       map.getSource("veh-src")?.setData(vehicleData());
       map.getSource("fleet-src")?.setData(fleetData());
+      map.getSource("rt-progress-src")?.setData(progressData());
       const now = nowSeconds();
       followFrame();
       drawFollowMarker(now);
