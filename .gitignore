@@ -11,3 +11,4 @@ __pycache__/
 tools/.cache/
 .DS_Store
 .bods_key
+.crowding*.json

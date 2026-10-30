@@ -389,15 +389,19 @@
 
     /* Interchange stand diagram panel */
     .ix-panel {
-      width: 380px;
+      width: 330px;
       max-width: calc(100vw - 32px);
       min-height: 0;
       flex: 0 1 auto;
       overflow-y: auto;
-      padding: 16px 18px;
+      padding: 14px 15px;
       box-sizing: border-box;
     }
     .ix-panel[hidden] { display: none; }
+    /* A route's stop list scrolls on its own, so the header above it (follow, how busy) stays put */
+    .ix-panel.has-list:not([hidden]) { display: flex; flex-direction: column; overflow: hidden; }
+    .ix-panel.has-list #ix-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    .ix-panel.has-list .route-stops { flex: 1 1 auto; min-height: 120px; overflow-y: auto; }
     .ix-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .ix-head h2 { margin: 0; font-size: 18px; font-weight: 700; }
     .ix-close {
@@ -459,6 +463,40 @@
       cursor: pointer;
     }
     body[data-theme="dark"] .veh-show, body[data-theme="satellite"] .veh-show { color: #7aa7ff; }
+    .crowd {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px solid var(--panel-border);
+    }
+    .crowd-note {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .crowd-options { display: flex; gap: 3px; }
+    .crowd-options button {
+      display: grid;
+      place-items: center;
+      min-width: 30px;
+      height: 30px;
+      padding: 0 4px;
+      color: var(--panel-muted);
+      background: var(--panel-border);
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .crowd-options button:hover { color: var(--panel-fg); }
+    .crowd-options button[aria-pressed="true"] { background: var(--active-bg); color: var(--active-fg); }
+    .crowd-options button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
     .veh-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 2px 0 12px; }
     .veh-status {
       font-size: 13px;
@@ -596,6 +634,7 @@
         border-radius: 16px 16px 0 0;
       }
       body.ix-open .modes { display: none; }
+      .sidebar > .ix-panel.has-list { max-height: 56vh; }  /* room for the header and a few stops */
     }
   </style>
 </head>
@@ -1280,7 +1319,7 @@
       const zoom = document.querySelector(".maplibregl-ctrl-top-right").getBoundingClientRect();
       const right = (zoom.width ? innerWidth - zoom.left : 0) + 16;
       if (compact()) {
-        return { top, left: 24, right, bottom: (ixPanel.hidden ? 60 : innerHeight * 0.48) + 30 };
+        return { top, left: 24, right, bottom: (ixPanel.hidden ? 60 : innerHeight - ixPanel.getBoundingClientRect().top) + 30 };
       }
       const panelRight = ixPanel.hidden ? 0 : ixPanel.getBoundingClientRect().right;
       return { top, left: panelRight + 40, right: right + 8, bottom: 50 };
@@ -1330,6 +1369,7 @@
 
     function renderPanel() {
       ixPanel.hidden = !(diagram.stop || route);
+      ixPanel.classList.toggle("has-list", !!route);
       document.body.classList.toggle("ix-open", !ixPanel.hidden);
       // A journey opened from a stop or interchange has "Back to …" in place of the title.
       const from = route?.kind === "journey" ? (route.fromDiagram ? diagram.stop : route.backTo) : null;
@@ -1452,6 +1492,7 @@
             pattern: patternGeometry(next.data.patterns[p], next.data.stops, isTramLine(next.line) ? "tram" : "bus"),
             stopAt: next.dep.at };
           next.vehicle = key;
+          loadCrowding(next.trip);
         }
       } catch (err) {
         console.error(err);
@@ -1499,10 +1540,10 @@
         data: collection([
           { type: "Feature", properties: { kind: "line" }, geometry: { type: "LineString",
             coordinates: smoothPath(route.path, { maxCut: isTramLine(route.line) ? TRAM_CORNER_CUT_M : BUS_CORNER_CUT_M }) } },
-          ...stops.map((st, i) => point(st.lngLat, {
+          ...stops.map((st, i) => ({ ...point(st.lngLat, {
             kind: "stop", end: i === 0 || i === stops.length - 1,
             label: st.clock ? `${st.clock}  ${st.name}` : st.name
-          }))
+          }), id: i + 1 }))  // ids for marking the stops a bus has passed
         ])
       });
       // Fade the map behind the route so its stops read clearly against the street names.
@@ -1527,11 +1568,13 @@
           layout: { "line-cap": "round", "line-join": "round" },
           paint: { "line-color": PROGRESS_COLOUR, "line-width": 6 } }, firstLayer("fleet-icon", "veh-dot"));
       }
+      const passed = ["boolean", ["feature-state", "passed"], false];
+      routePassed = 0;
       map.addLayer({ id: "rt-stops", type: "circle", source: "rt-src", filter: isStop,
         paint: {
           "circle-radius": ["case", ["get", "end"], 6, 3.5],
-          "circle-color": ["case", ["get", "end"], colour, "#ffffff"],
-          "circle-stroke-color": ["case", ["get", "end"], "#ffffff", colour],
+          "circle-color": ["case", ["get", "end"], ["case", passed, PROGRESS_COLOUR, colour], "#ffffff"],
+          "circle-stroke-color": ["case", ["get", "end"], "#ffffff", passed, PROGRESS_COLOUR, colour],
           "circle-stroke-width": 2
         } }, firstLayer("fleet-icon", "veh-dot"));
       map.addLayer({ id: "rt-labels", type: "symbol", source: "rt-src", filter: isStop,
@@ -1555,6 +1598,20 @@
       const P = trip.pattern;
       return { P, pos: dep.pos, from: P.stopDist[dep.pos] ?? 0,
         to: Math.min(P.cum.at(-1), distanceAt(trip, routeClock(trip, e)).d) };
+    }
+
+    // Stops on the map the open journey's vehicle has passed, marked yellow like the line.
+    let routePassed = 0;
+    function markPassedStops() {
+      const progress = journeyProgress();
+      const stops = route?.stops ?? [];
+      let k = 0;
+      if (progress) while (k < stops.length && progress.P.stopDist[progress.pos + k] <= progress.to) k++;
+      if (k === routePassed || !map.getSource("rt-src")) return;
+      for (let i = Math.min(k, routePassed); i < Math.max(k, routePassed); i++) {
+        map.setFeatureState({ source: "rt-src", id: i + 1 }, { passed: i < k });
+      }
+      routePassed = k;
     }
 
     function progressData() {
@@ -1591,6 +1648,24 @@
       }
       bar.style.top = `${items.length ? middle(items[0]) : 0}px`;
       bar.style.height = `${height}px`;
+      if (progress) scrollToProgress(bar, height);
+    }
+
+    // Keeps the head of the progress bar in view, about 40% of the way down the list, gliding
+    // there rather than jumping. Scrolling the list yourself pauses this for a while.
+    const STOP_LIST_PAUSE_MS = 8000;
+    let stopListTouchedAt = -Infinity;
+    for (const type of ["wheel", "touchmove", "keydown"]) {
+      ixPanel.addEventListener(type, () => { stopListTouchedAt = performance.now(); }, { passive: true });
+    }
+    function scrollToProgress(bar, height) {
+      if (performance.now() - stopListTouchedAt < STOP_LIST_PAUSE_MS) return;
+      const list = bar.parentElement;  // the stop list scrolls, and the bar sits in it
+      const head = bar.offsetTop + height;
+      const most = list.scrollHeight - list.clientHeight;
+      const target = Math.max(0, Math.min(most, head - list.clientHeight * 0.4));
+      const gap = target - list.scrollTop;
+      if (Math.abs(gap) > 0.5) list.scrollTop += gap * 0.12;
     }
 
     // Drop the route without moving the map or redrawing the panel.
@@ -1640,8 +1715,8 @@
             <div>
               <p class="route-dest">${esc(dep.headsign)}</p>
               <p class="ix-hint" ${route.vehicle ? 'id="veh-next"' : ""}>${route.clicked ? `Next stop ${esc(route.stopName)}` : `Leaves ${
-                route.fromDiagram ? esc(dep.stand) : esc(route.stopName)}`} at ${dep.clock}${
-                last ? ` · ${last.mins} min to ${esc(last.name)}` : ""}</p>${
+                route.fromDiagram ? esc(dep.stand) : esc(route.stopName)}`} at ${route.clicked ? route.nextClock : dep.clock}${
+                last ? ` · ${last.mins - (route.clicked ? stops[route.nextPos]?.mins ?? 0 : 0)} min to ${esc(last.name)}` : ""}</p>${
                 !isTramLine(route.line) && operatorOf(route.line) ? `
               <p class="route-operator">Run by ${esc(operatorOf(route.line))}</p>` : ""}
             </div>
@@ -1674,6 +1749,7 @@
         </li>`).join("");
       queueMicrotask(updateVehicleCard);
       ixBody.innerHTML = `${head}<ol class="route-stops">${rows}${route.trip ? `<span class="route-progress" aria-hidden="true"></span>` : ""}</ol>
+        ${route.vehicle ? crowdingHTML() : ""}
         <p class="dep-note">${kind === "line" ? "Minutes from the start on a typical journey. Tap a stop to zoom to it." :
           "Scheduled times from the TfGM timetable. Tap a stop to zoom to it."}</p>`;
     }
@@ -1688,12 +1764,110 @@
       if (route) hideRoute();
       else closeDiagram();
     });
+    // ---- How busy is it? ------------------------------------------------------------------
+    // Riders can say how crowded a bus or tram is, for that journey on that day. Ratings are
+    // kept in this browser, and shared through tools/live_server.py when the page is served by
+    // it, so everyone using that server sees what others said.
+    const CROWDING = ["Empty", "Plenty of seats", "A few seats", "Standing room", "Packed"];
+    const CROWDING_KEEP_MS = 2 * 86400_000;
+    const crowding = { mine: {}, shared: {}, server: location.protocol.startsWith("http") ? null : false };
+    // "-v2": five levels from empty to packed (the first version had four).
+    try { crowding.mine = JSON.parse(localStorage.getItem("gm-crowding-v2") || "{}"); } catch { /* start afresh */ }
+
+    // A journey on a particular day: its service date, then its line, variant and start.
+    function journeyId(trip) {
+      const now = londonNow();
+      const day = new Date(Date.UTC(now.y, now.m - 1, now.d + Math.floor(trip.start / 86400)));
+      return `${day.toISOString().slice(0, 10)}|${trip.key}`;
+    }
+
+    // An empty seat, then one to four people: emptier to fuller.
+    function crowdingIcon(level) {
+      if (level === 0) {
+        return `<svg viewBox="0 0 12 14" width="14" height="16" fill="currentColor" aria-hidden="true">
+          <path d="M2 1.5h2.2v7h6.3v2.2H2z"/><path d="M2.6 10.7h1.6V13H2.6zM8.4 10.7H10V13H8.4z"/></svg>`;
+      }
+      const n = level;
+      const person = x => `<circle cx="${x}" cy="4" r="2.2"/><path d="M${x - 2.6} 13v-3.2a2.6 2.6 0 0 1 5.2 0V13z"/>`;
+      const width = 6.5 * n + 1;
+      return `<svg viewBox="0 0 ${width} 14" width="${width * 1.15}" height="16" fill="currentColor" aria-hidden="true">${
+        Array.from({ length: n }, (_, i) => person(3.75 + 6.5 * i)).join("")}</svg>`;
+    }
+
+    // A slim strip under the stop list: what's been said, and buttons to say it yourself.
+    function crowdingHTML() {
+      const trip = findTrip(route.vehicle);
+      if (!trip) return "";
+      const id = journeyId(trip), mine = crowding.mine[id]?.level;
+      return `
+        <div class="crowd" role="group" aria-label="How busy is this ${isTramLine(trip.line) ? "tram" : "bus"}?">
+          <p class="crowd-note" id="crowd-note">${crowdingNote(id)}</p>
+          <div class="crowd-options">${CROWDING.map((label, i) => `
+            <button type="button" data-crowd="${i}" aria-pressed="${mine === i}" aria-label="${label}" title="${label}">${crowdingIcon(i)}</button>`).join("")}
+          </div>
+        </div>`;
+    }
+
+    function crowdingNote(id) {
+      const shared = crowding.shared[id], mine = crowding.mine[id];
+      if (shared?.count > 1 || (shared?.count === 1 && !mine)) {
+        const top = shared.levels.indexOf(Math.max(...shared.levels));
+        return `${shared.count} say: ${CROWDING[top]}`;
+      }
+      if (mine) return CROWDING[mine.level];
+      return "How busy is it?";
+    }
+
+    function drawCrowding(id) {
+      document.querySelectorAll("[data-crowd]").forEach(b => b.setAttribute("aria-pressed", String(crowding.mine[id]?.level === Number(b.dataset.crowd))));
+      const note = document.getElementById("crowd-note");
+      if (note) note.textContent = crowdingNote(id);
+    }
+
+    async function crowdingRequest(init, query = "") {
+      if (crowding.server === false) return null;
+      try {
+        const res = await fetch(`api/crowding${query}`, { cache: "no-store", ...init });
+        if (!res.ok) throw new Error(res.status);
+        crowding.server = true;
+        return await res.json();
+      } catch {
+        crowding.server = false;  // not served by tools/live_server.py: ratings stay on this device
+        return null;
+      }
+    }
+
+    async function loadCrowding(trip) {
+      const id = journeyId(trip);
+      const body = await crowdingRequest({}, `?journey=${encodeURIComponent(id)}`);
+      if (body?.ok) {
+        crowding.shared[id] = body;
+        if (route?.vehicle === trip.key) drawCrowding(id);
+      }
+    }
+
+    async function rateCrowding(level) {
+      const trip = route?.vehicle && findTrip(route.vehicle);
+      if (!trip) return;
+      const id = journeyId(trip), now = Date.now();
+      crowding.mine[id] = { level, at: now };
+      for (const [k, v] of Object.entries(crowding.mine)) if (now - v.at > CROWDING_KEEP_MS) delete crowding.mine[k];
+      localStorage.setItem("gm-crowding-v2", JSON.stringify(crowding.mine));
+      drawCrowding(id);
+      const body = await crowdingRequest({ method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ journey: id, level }) });
+      if (body?.ok) crowding.shared[id] = body;
+      drawCrowding(id);
+    }
+
     function onPanelActivate(e) {
       if (e.type === "keydown" && e.key !== "Enter") return;
       if (e.target.closest(".ix-all")) return selectStand(null);
       if (e.target.closest(".ix-back")) return hideRoute({ back: true });
       if (e.target.closest(".veh-show")) return showAllVehicles();
       if (e.target.closest(".veh-follow")) return following === route?.vehicle ? stopFollowing() : startFollowing(route.vehicle);
+      const crowdButton = e.target.closest("[data-crowd]");
+      if (crowdButton) return rateCrowding(Number(crowdButton.dataset.crowd));
       const dirButton = e.target.closest("[data-dir]");
       if (dirButton && route?.kind === "line") {
         setLineDirection(route, Number(dirButton.dataset.dir));
@@ -2785,13 +2959,16 @@
     }
 
     // Clicking a moving bus shows the rest of its journey from its next stop.
+    // Clicking a bus shows its whole journey, from its first stop: the stops it has passed are
+    // marked as it goes, and the header gives its next stop.
     function openTrip(trip) {
       const { next } = tripPosition(trip, nowSeconds());
-      const secs = trip.start + trip.offsets[next] * 60;
       const stopName = trip.stops[trip.pattern.stops[next]][0];
-      const dep = { line: trip.line, variant: trip.variant, pos: next, secs, at: secs, clock: clockTime(secs),
-        route: shortLineName(trip.line), colour: META.lines[trip.line][5], headsign: trip.headsign, stand: stopName };
-      openRoute({ kind: "journey", line: trip.line, dep, stopName, clicked: true, fromDiagram: !!diagram.stop });
+      const firstStop = trip.stops[trip.pattern.stops[0]][0];
+      const dep = { line: trip.line, variant: trip.variant, pos: 0, secs: trip.start, at: trip.start, clock: clockTime(trip.start),
+        route: shortLineName(trip.line), colour: META.lines[trip.line][5], headsign: trip.headsign, stand: firstStop };
+      openRoute({ kind: "journey", line: trip.line, dep, stopName, clicked: true, nextPos: next,
+        nextClock: clockTime(trip.start + trip.offsets[next] * 60), fromDiagram: !!diagram.stop });
     }
 
     map.on("click", "veh-dot", e => { const trip = findTrip(e.features[0].properties.key); if (trip) openTrip(trip); });
@@ -3252,6 +3429,7 @@
       map.getSource("veh-src")?.setData(vehicleData());
       map.getSource("fleet-src")?.setData(fleetData());
       map.getSource("rt-progress-src")?.setData(progressData());
+      if (route?.trip) markPassedStops();
       if (route?.trip && !ixPanel.hidden) drawStopListProgress();
       const now = nowSeconds();
       followFrame();

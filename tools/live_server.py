@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Serve the map locally, with live bus positions from the Bus Open Data Service (BODS).
+"""Serve the map locally, with live bus positions from the Bus Open Data Service (BODS), and
+shared "how busy is it?" ratings.
 
 BODS needs a free API key (register at https://data.bus-data.dft.gov.uk/) and doesn't let web
 pages call it directly, so this small server fetches positions with the key and passes them
@@ -9,11 +10,15 @@ to the page. The key stays here; it's never sent to the browser.
     python3 tools/live_server.py         # then open http://localhost:8000
 
 Without a key the map still works, showing timetabled positions.
+
+Riders' crowding ratings are kept in .crowding.json (one per rider per journey, for a day and
+a half) and shown to everyone using this server.
 """
 
 import argparse
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -21,6 +26,7 @@ import xml.etree.ElementTree as ET
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import fetch  # noqa: E402  (urllib with a curl fallback for old macOS TLS)
@@ -95,21 +101,84 @@ class LiveFeed:
             return self.payload
 
 
+class Crowding:
+    """Riders' ratings of how busy a journey is: 0 empty, 1 plenty of seats, 2 a few seats,
+    3 standing room, 4 packed. One rating per rider per journey; a new one replaces the old."""
+
+    LEVELS = 5
+
+    KEEP_SECONDS = 36 * 3600
+    JOURNEY = re.compile(r"^\d{4}-\d{2}-\d{2}\|\d+\|\d+\|-?\d+$")  # date|line|variant|start, as the page makes them
+    FILE = REPO / ".crowding-v2.json"  # "-v2": five levels (the first version had four)
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        try:
+            self.ratings = json.loads(self.FILE.read_text())  # journey -> rider -> [level, unix time]
+        except (OSError, ValueError):
+            self.ratings = {}
+
+    def summary(self, journey):
+        given = self.ratings.get(journey, {}).values()
+        levels = [0] * self.LEVELS
+        for level, _ in given:
+            levels[level] += 1
+        return {"ok": True, "count": len(given), "levels": levels, "latest": max((t for _, t in given), default=0)}
+
+    def get(self, journey):
+        with self.lock:
+            return self.summary(journey)
+
+    def rate(self, journey, level, rider):
+        now = time.time()
+        with self.lock:
+            self.ratings.setdefault(journey, {})[rider] = [level, now]
+            for j in list(self.ratings):
+                self.ratings[j] = {r: v for r, v in self.ratings[j].items() if now - v[1] < self.KEEP_SECONDS}
+                if not self.ratings[j]:
+                    del self.ratings[j]
+            self.FILE.write_text(json.dumps(self.ratings))
+            return self.summary(journey)
+
+
 class Handler(SimpleHTTPRequestHandler):
     feed = None
+    crowding = None
+
+    def send_json(self, body, status=200):
+        data = json.dumps(body, separators=(",", ":")).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_GET(self):
-        if self.path.split("?")[0] == "/api/live":
-            body = self.feed.get() if self.feed else {"ok": False, "error": "No BODS API key configured"}
-            data = json.dumps(body, separators=(",", ":")).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
-            return
+        path, _, query = self.path.partition("?")
+        if path == "/api/live":
+            return self.send_json(self.feed.get() if self.feed else {"ok": False, "error": "No BODS API key configured"})
+        if path == "/api/crowding":
+            journey = parse_qs(query).get("journey", [""])[0]
+            if not Crowding.JOURNEY.match(journey):
+                return self.send_json({"ok": False, "error": "Unknown journey"}, 400)
+            return self.send_json(self.crowding.get(journey))
         super().do_GET()
+
+    def do_POST(self):
+        if self.path != "/api/crowding":
+            return self.send_json({"ok": False, "error": "Not found"}, 404)
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            if length > 1000:
+                raise ValueError("too long")
+            body = json.loads(self.rfile.read(length))
+            journey, level = body["journey"], body["level"]
+            if not (isinstance(journey, str) and Crowding.JOURNEY.match(journey) and level in range(Crowding.LEVELS)):
+                raise ValueError("bad rating")
+        except (ValueError, KeyError, TypeError):
+            return self.send_json({"ok": False, "error": "Couldn't read that rating"}, 400)
+        self.send_json(self.crowding.rate(journey, level, self.client_address[0]))
 
     def log_message(self, fmt, *args):  # keep the console for errors only
         pass
@@ -122,6 +191,7 @@ def main():
 
     key = api_key()
     Handler.feed = LiveFeed(key) if key else None
+    Handler.crowding = Crowding()
     server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(REPO)))
     print(f"Map: http://localhost:{args.port}  ({'live buses on' if key else 'no BODS key: timetable positions only'})")
     try:

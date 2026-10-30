@@ -171,6 +171,10 @@ def main():
         return route["route_type"] == "0" and route["route_short_name"] != "Replacement Bus"
 
     tram_routes = {rid for rid, r in routes.items() if is_tram(r)}
+    # Outside Greater Manchester, only stops on Bee Network routes are shown.
+    bee_routes = {rid for rid, r in routes.items() if agencies.get(r["agency_id"]) == "Bee Network"}
+    bee_stop_ids = set()
+    in_gm = lambda sid: stop_info[sid]["stop_code"].startswith("180")
     lines = Table()                    # route_id -> line index
     headsigns = Table()
     services = Table()
@@ -208,6 +212,8 @@ def main():
         offsets = tuple(round((r[1] - rows[0][1]) / 60) for r in rows)
         v = variants[line].setdefault((p, offsets), len(variants[line]))
         svc = services(trip["service_id"])
+        if route_id in bee_routes:
+            bee_stop_ids.update(r[0] for r in rows)
         if route_id in tram_routes:
             tram_stop_ids.update(r[0] for r in rows)
             tram_trips.add((line, v, rows[0][1], svc))  # every tram, to draw the whole network moving
@@ -239,6 +245,8 @@ def main():
         rows.append((r["stop_id"], gtfs_seconds(r["departure_time"]), dist, r["pickup_type"], r["stop_headsign"]))
     if current is not None:
         finish_trip(current, rows)
+    for sid in [sid for sid in stop_deps if not in_gm(sid) and sid not in bee_stop_ids and sid not in tram_stop_ids]:
+        del stop_deps[sid]
 
     # ---- Line files: each journey pattern's path, stops and timings ------------------------
     print("Reading shapes.txt ...")
@@ -252,20 +260,23 @@ def main():
         pts.sort()
 
     # Bus routes onto the roads they run along, in the left-hand lane (see osm_roads.py).
-    # Trams have their own tracks. Only within SNAP_AREA, to keep the road download small.
+    # Trams have their own tracks. Bee Network routes all the way; others only within SNAP_AREA,
+    # to keep the road download small.
     if not args.no_snap:
         tram_shapes = {info["shape"] for line, pats in pattern_info.items() if lines.items[line] in tram_routes
                        for info in pats.values()}
+        bee_shapes = {info["shape"] for line, pats in pattern_info.items() if lines.items[line] in bee_routes
+                      for info in pats.values()}
         (w, s_), (e, n) = SNAP_AREA
-        inside = lambda lon, lat: w <= lon <= e and s_ <= lat <= n
+        in_area = lambda lon, lat: w <= lon <= e and s_ <= lat <= n
         bus_shapes = [sid for sid in shapes if sid not in tram_shapes]
-        tiles = {tile_of(lon, lat) for sid in bus_shapes for _, _, lon, lat in shapes[sid] if inside(lon, lat)}
+        tiles = {tile_of(lon, lat) for sid in bus_shapes for _, _, lon, lat in shapes[sid] if sid in bee_shapes or in_area(lon, lat)}
         snapper = RoadSnapper(load_roads(tiles), lat0=(s_ + n) / 2)
         print(f"Snapping {len(bus_shapes)} bus route shapes onto roads ...")
         for sid in bus_shapes:
             pts = shapes[sid]
             snapped = snapper.snap_path([(q[2], q[3]) for q in pts])
-            shapes[sid] = [(q[0], q[1], *(xy if inside(q[2], q[3]) else (q[2], q[3])))
+            shapes[sid] = [(q[0], q[1], *(xy if sid in bee_shapes or in_area(q[2], q[3]) else (q[2], q[3])))
                            for q, xy in zip(pts, snapped)]
 
     def town(info):

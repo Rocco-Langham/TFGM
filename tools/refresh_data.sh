@@ -14,9 +14,9 @@ trap 'rm -rf "$tmp"' EXIT
 
 echo "$(date '+%Y-%m-%d %H:%M') refreshing timetable data in $repo"
 curl -sSfL --retry 3 -o "$tmp/gtfs.zip" "https://odata.tfgm.com/opendata/downloads/TfGMgtfsnew.zip"
-curl -sSfL --retry 3 -o "$tmp/naptan.csv" "https://naptan.api.dft.gov.uk/v1/access-nodes?dataFormat=csv&atcoAreaCodes=180"
 
-/usr/bin/env python3 "$repo/tools/build_timetable.py" --gtfs "$tmp/gtfs.zip" --naptan "$tmp/naptan.csv" --out "$tmp/data"
+# NaPTAN (stop details) is downloaded by the build itself, for the areas in tools/common.py.
+/usr/bin/env python3 "$repo/tools/build_timetable.py" --gtfs "$tmp/gtfs.zip" --out "$tmp/data"
 
 # Swap the new files in. Folders go via a rename so the old copy is only removed afterwards.
 for item in meta.js bus-departures.js stops.js metrolink.js stops lines; do

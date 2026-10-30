@@ -3,7 +3,8 @@
 A single-page map of Greater Manchester with light, dark and satellite styles, showing:
 
 - the 17 major bus interchanges, each with a to-scale stand diagram and the buses due to leave
-- every other bus stop, with next departures, and stand diagrams for groups of lettered stops
+- every other bus stop, with next departures, and stand diagrams for groups of lettered stops, including
+  stops just beyond Greater Manchester that Bee Network routes run to
 - the Metrolink network and next trams
 - the route of any bus or tram you click, who runs it, and search by stop, town or route number
 
@@ -32,6 +33,12 @@ positions instead, and whether each bus is early or late:
 
 The server keeps the key to itself and passes positions to the page. BODS has no tram positions,
 so trams always follow the timetable.
+
+## How busy is it?
+
+Click a bus or tram and you can say how crowded it is. Ratings are saved in your browser. When
+the page is served by `tools/live_server.py`, they're also shared through it (kept for a day and a
+half in `.crowding-v2.json`), so everyone using that server sees what other riders said.
 
 ## Keeping the timetable current
 

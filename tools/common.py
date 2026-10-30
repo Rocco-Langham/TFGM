@@ -9,7 +9,11 @@ import urllib.request
 from pathlib import Path
 
 GTFS_URL = "https://odata.tfgm.com/opendata/downloads/TfGMgtfsnew.zip"
-NAPTAN_URL = "https://naptan.api.dft.gov.uk/v1/access-nodes?dataFormat=csv&atcoAreaCodes=180"
+# NaPTAN areas: Greater Manchester (180), and the neighbours Bee Network routes run into:
+# Merseyside, Lancashire, Blackburn with Darwen, Warrington, Derbyshire, Cheshire East and
+# West Yorkshire.
+NAPTAN_AREAS = ("180", "280", "250", "258", "069", "100", "060", "450")
+NAPTAN_URL = f"https://naptan.api.dft.gov.uk/v1/access-nodes?dataFormat=csv&atcoAreaCodes={','.join(NAPTAN_AREAS)}"
 DATA = Path(__file__).resolve().parent.parent / "data"
 
 # (display name, borough, NaPTAN CommonName, NaPTAN LocalityName)
