@@ -1,12 +1,13 @@
-# Greater Manchester bus and tram map
+# Greater Manchester bus, tram and train navigator
 
-A single-page map of Greater Manchester with light, dark and satellite styles, showing:
+A highly useful map of Greater Manchester with light, dark and satellite styles, showing:
 
 - the 17 major bus interchanges, each with a to-scale stand diagram and the buses due to leave
 - every other bus stop, with next departures, and stand diagrams for groups of lettered stops, including
-  stops just beyond Greater Manchester that Bee Network routes run to
+  stops beyond Greater Manchester that Bee Network routes run to
 - the Metrolink network and next trams
-- the route of any bus or tram you click, who runs it, and search by stop, town or route number
+- trains, click on any train station to view the latest train departure.
+- click 'follow this (vehicle)' and the map will automaticly lock and follow that vehicle, showing its timetable position until live buses are fully set up
 
 Times come from TfGM's published timetable, so they are scheduled, not live.
 
